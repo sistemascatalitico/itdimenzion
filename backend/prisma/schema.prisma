@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  SUPERVISOR
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+  PENDING_VERIFICATION
+}
+
+enum DocumentType {
+  CEDULA
+  TARJETA_IDENTIDAD
+  CEDULA_EXTRANJERIA
+  NIT
+  RUT
+  PASSPORT
+}
+
+model Company {
+  id           String        @id @default(cuid())
+  name         String
+  nit          String        @unique
+  address      String?
+  phone        String?
+  email        String?
+  website      String?
+  logo         String?
+  status       UserStatus    @default(ACTIVE)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  
+  headquarters Headquarters[]
+  
+  @@map("companies")
+}
+
+model Headquarters {
+  id          String     @id @default(cuid())
+  name        String
+  address     String?
+  phone       String?
+  email       String?
+  companyId   String
+  status      UserStatus @default(ACTIVE)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  users       User[]
+  processes   Process[]
+  jobTitles   JobTitle[]
+  
+  @@map("headquarters")
+}
+
+model User {
+  id                    String       @id @default(cuid())
+  email                 String       @unique
+  password              String
+  firstName             String
+  lastName              String
+  documentType          DocumentType
+  documentNumber        String       @unique
+  phone                 String?
+  role                  UserRole     @default(USER)
+  status                UserStatus   @default(PENDING_VERIFICATION)
+  headquartersId        String
+  jobTitleId            String?
+  processId             String?
+  emailVerified         Boolean      @default(false)
+  emailVerificationToken String?     @unique
+  passwordResetToken     String?     @unique
+  passwordResetExpires   DateTime?
+  loginAttempts          Int          @default(0)
+  lockUntil              DateTime?
+  lastLogin              DateTime?
+  twoFactorEnabled       Boolean      @default(false)
+  twoFactorSecret        String?
+  profilePicture         String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  createdBy             String?
+  
+  headquarters          Headquarters @relation(fields: [headquartersId], references: [id])
+  jobTitle              JobTitle?    @relation(fields: [jobTitleId], references: [id])
+  process               Process?     @relation(fields: [processId], references: [id])
+  creator               User?        @relation("UserCreatedBy", fields: [createdBy], references: [id])
+  createdUsers          User[]       @relation("UserCreatedBy")
+  refreshTokens         RefreshToken[]
+  loginLogs             LoginLog[]
+  
+  @@index([email])
+  @@index([documentNumber])
+  @@index([status])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("refresh_tokens")
+}
+
+model LoginLog {
+  id          String   @id @default(cuid())
+  userId      String
+  ipAddress   String
+  userAgent   String?
+  success     Boolean
+  failureReason String?
+  timestamp   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([timestamp])
+  @@map("login_logs")
+}
+
+model JobTitle {
+  id             String       @id @default(cuid())
+  name           String
+  description    String?
+  headquartersId String
+  status         UserStatus   @default(ACTIVE)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  headquarters   Headquarters @relation(fields: [headquartersId], references: [id], onDelete: Cascade)
+  users          User[]
+  
+  @@map("job_titles")
+}
+
+model Process {
+  id             String       @id @default(cuid())
+  name           String
+  description    String?
+  headquartersId String
+  status         UserStatus   @default(ACTIVE)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  headquarters   Headquarters @relation(fields: [headquartersId], references: [id], onDelete: Cascade)
+  users          User[]
+  
+  @@map("processes")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  action      String
+  entityType  String
+  entityId    String?
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([timestamp])
+  @@index([entityType])
+  @@map("audit_logs")
+}
