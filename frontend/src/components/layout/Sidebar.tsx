@@ -99,14 +99,25 @@ interface SidebarProps {
   open: boolean;
   onClose: () => void;
   variant?: 'permanent' | 'persistent' | 'temporary';
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ open, onClose, variant = 'persistent' }) => {
+const Sidebar: React.FC<SidebarProps> = ({ 
+  open, 
+  onClose, 
+  variant = 'persistent',
+  collapsed: externalCollapsed = false,
+  onToggleCollapse
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  
+  // Usar el estado externo si está disponible, sino usar el interno
+  const collapsed = onToggleCollapse ? externalCollapsed : internalCollapsed;
 
   const handleItemClick = (item: MenuItem) => {
     if (item.children) {
@@ -125,7 +136,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose, variant = 'persistent'
   };
 
   const toggleCollapse = () => {
-    setCollapsed(!collapsed);
+    if (onToggleCollapse) {
+      onToggleCollapse();
+    } else {
+      setInternalCollapsed(!internalCollapsed);
+    }
   };
 
   const handleLogout = () => {
@@ -255,19 +270,21 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose, variant = 'persistent'
             IT<span style={{ color: '#FFA726' }}>DIMENZION</span>
           </Typography>
         )}
-        <Tooltip title={collapsed ? 'Expandir' : 'Contraer'} placement="right">
-          <IconButton
-            onClick={toggleCollapse}
-            sx={{
-              color: 'white',
-              '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              },
-            }}
-          >
-            {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-          </IconButton>
-        </Tooltip>
+        {variant !== 'temporary' && (
+          <Tooltip title={collapsed ? 'Expandir' : 'Contraer'} placement="right">
+            <IconButton
+              onClick={toggleCollapse}
+              sx={{
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                },
+              }}
+            >
+              {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
 
       <Divider sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }} />
@@ -412,6 +429,8 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose, variant = 'persistent'
         '& .MuiDrawer-paper': {
           width: collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH,
           boxSizing: 'border-box',
+          background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E6B 100%)',
+          zIndex: (theme) => theme.zIndex.drawer + 1,
           transition: theme => theme.transitions.create('width', {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,

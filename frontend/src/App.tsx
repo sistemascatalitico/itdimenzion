@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
-import { CssBaseline } from '@mui/material';
+import { CssBaseline, Box, Typography } from '@mui/material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import secureTheme from './theme/theme';
 import LoginForm from './components/auth/LoginForm';
@@ -17,7 +17,9 @@ const RootRedirect: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   
   if (isLoading) {
-    return null; // Let the loading be handled by individual components
+    return <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+      <Typography>Verificando autenticación...</Typography>
+    </Box>;
   }
   
   return <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />;

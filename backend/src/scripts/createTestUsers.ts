@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, UserStatus, DocumentType } from '@prisma/client';
+import { PrismaClient, UserRole, Status, DocumentType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -77,7 +77,7 @@ async function createTestUsers() {
           documentNumber: userData.documentNumber,
           phone: userData.phone,
           role: userData.role,
-          status: UserStatus.ACTIVE,
+          status: Status.ACTIVE,
           emailVerified: true,
           headquartersId: headquarters.id,
           jobTitleId: jobTitle?.id,

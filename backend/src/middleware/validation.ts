@@ -1,6 +1,8 @@
 import { body, param, query } from 'express-validator';
 import { DocumentType, UserRole } from '@prisma/client';
 
+// Force reload - validation updated
+
 export const registerValidation = [
   body('email')
     .isEmail()
@@ -46,18 +48,25 @@ export const registerValidation = [
     .withMessage('Número de teléfono no válido para Colombia'),
     
   body('headquartersId')
-    .isUUID()
-    .withMessage('ID de sede debe ser un UUID válido'),
+    .isNumeric()
+    .custom((value) => {
+      const num = parseInt(value, 10);
+      if (isNaN(num) || num < 1) {
+        throw new Error('ID de sede debe ser un número entero válido mayor a 0');
+      }
+      return true;
+    })
+    .withMessage('ID de sede debe ser un número entero válido'),
     
   body('jobTitleId')
     .optional()
-    .isUUID()
-    .withMessage('ID de cargo debe ser un UUID válido'),
+    .isInt({ min: 1 })
+    .withMessage('ID de cargo debe ser un número entero válido'),
     
   body('processId')
     .optional()
-    .isUUID()
-    .withMessage('ID de proceso debe ser un UUID válido'),
+    .isInt({ min: 1 })
+    .withMessage('ID de proceso debe ser un número entero válido'),
 ];
 
 export const loginValidation = [

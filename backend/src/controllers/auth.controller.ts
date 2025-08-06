@@ -33,10 +33,15 @@ export const register = async (req: Request, res: Response) => {
       documentType,
       documentNumber,
       phone,
-      headquartersId,
-      jobTitleId,
-      processId,
+      headquartersId: headquartersIdRaw,
+      jobTitleId: jobTitleIdRaw,
+      processId: processIdRaw,
     } = req.body;
+
+    // Convert string IDs to integers
+    const headquartersId = parseInt(headquartersIdRaw, 10);
+    const jobTitleId = jobTitleIdRaw ? parseInt(jobTitleIdRaw, 10) : undefined;
+    const processId = processIdRaw ? parseInt(processIdRaw, 10) : undefined;
 
     // Verificar si el usuario ya existe
     const existingUser = await prisma.user.findFirst({
@@ -104,7 +109,7 @@ export const register = async (req: Request, res: Response) => {
         processId,
         emailVerificationToken,
         role: 'USER', // Rol por defecto
-        status: 'PENDING_VERIFICATION',
+        status: 'ACTIVE',
       },
       select: {
         id: true,
@@ -156,8 +161,11 @@ export const register = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
   try {
+    console.log('🔍 Login attempt:', { email: req.body.email });
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('❌ Validation errors:', errors.array());
       return res.status(400).json({
         error: 'Datos de validación incorrectos',
         details: errors.array(),
@@ -167,6 +175,8 @@ export const login = async (req: Request, res: Response) => {
 
     const { email, password } = req.body;
     const userEmail = email.toLowerCase();
+    
+    console.log('🔍 Looking for user:', userEmail);
 
     // Buscar usuario
     const user = await prisma.user.findUnique({
@@ -189,7 +199,10 @@ export const login = async (req: Request, res: Response) => {
       failureReason: '',
     };
 
+    console.log('👤 User found:', user ? { id: user.id, email: user.email, role: user.role } : null);
+
     if (!user) {
+      console.log('❌ User not found');
       loginData.failureReason = 'Usuario no encontrado';
       logSecurityEvent('LOGIN_ATTEMPT_INVALID_USER', req, loginData);
       
@@ -200,7 +213,7 @@ export const login = async (req: Request, res: Response) => {
     }
 
     // Verificar si la cuenta está bloqueada
-    if (user.lockUntil && user.lockUntil > new Date()) {
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
       loginData.failureReason = 'Cuenta bloqueada';
       
       await prisma.loginLog.create({
@@ -234,7 +247,7 @@ export const login = async (req: Request, res: Response) => {
         data: {
           loginAttempts: newAttempts,
           ...(shouldLock && {
-            lockUntil: new Date(Date.now() + securityConfig.loginSecurity.lockTimeMs),
+            lockedUntil: new Date(Date.now() + securityConfig.loginSecurity.lockTimeMs),
           }),
         },
       });
@@ -290,7 +303,7 @@ export const login = async (req: Request, res: Response) => {
       where: { id: user.id },
       data: {
         loginAttempts: 0,
-        lockUntil: null,
+        lockedUntil: null,
         lastLogin: new Date(),
       },
     });
@@ -300,7 +313,7 @@ export const login = async (req: Request, res: Response) => {
       id: user.id,
       email: user.email,
       role: user.role,
-      headquartersId: user.headquartersId,
+      headquartersId: user.headquartersId?.toString() || '0',
     });
 
     const refreshToken = generateRefreshToken(user.id);
@@ -353,12 +366,13 @@ export const login = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Error en login:', error);
+    console.error('Error detallado en login:', error);
     logSecurityEvent('LOGIN_ERROR', req, { error: error instanceof Error ? error.message : 'Unknown error' });
     
     res.status(500).json({
       error: 'Error interno del servidor',
       statusCode: 500,
+      debug: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.message : String(error) : undefined,
     });
   }
 };
@@ -420,7 +434,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       id: storedToken.user.id,
       email: storedToken.user.email,
       role: storedToken.user.role,
-      headquartersId: storedToken.user.headquartersId,
+      headquartersId: storedToken.user.headquartersId?.toString() || '0',
     });
 
     res.json({

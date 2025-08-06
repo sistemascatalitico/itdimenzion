@@ -19,7 +19,7 @@ import { authRateLimit } from '../middleware/security';
 
 const router: Router = Router();
 
-// Rutas públicas (con rate limiting más estricto)
+// Rutas públicas (con rate limiting más estricto) - Updated validation
 router.post('/register', authRateLimit, registerValidation, register);
 router.post('/login', authRateLimit, loginValidation, login);
 router.post('/refresh-token', refreshToken);

@@ -131,11 +131,15 @@ const RegisterForm: React.FC = () => {
       newErrors.documentNumber = 'El número de documento es obligatorio';
     }
 
-    // Contraseña
+    // Contraseña - validación robusta según backend
     if (!formData.password) {
       newErrors.password = 'La contraseña es obligatoria';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'La contraseña debe tener al menos 8 caracteres';
+    } else if (formData.password.length > 128) {
+      newErrors.password = 'La contraseña no puede exceder 128 caracteres';
+    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/.test(formData.password)) {
+      newErrors.password = 'La contraseña debe contener al menos: 1 minúscula, 1 mayúscula, 1 número y 1 carácter especial';
     }
 
     // Confirmar contraseña
@@ -205,7 +209,18 @@ const RegisterForm: React.FC = () => {
 
     try {
       const selectedCountry = countries.find(c => c.code === formData.countryCode);
-      const fullPhoneNumber = formData.phone ? `${selectedCountry?.phone}${formData.phone.replace(/^\+?\d{1,3}/, '')}` : undefined;
+      // Simplificar el procesamiento del teléfono
+      let fullPhoneNumber = undefined;
+      if (formData.phone) {
+        // Si ya tiene código de país, usarlo tal como está
+        if (formData.phone.startsWith('+')) {
+          fullPhoneNumber = formData.phone;
+        } else {
+          // Si no, agregar el código del país seleccionado
+          fullPhoneNumber = `${selectedCountry?.phone || '+57'}${formData.phone}`;
+        }
+      }
+      
       
       const result = await register({
         firstName: formData.firstName.trim(),
@@ -215,7 +230,7 @@ const RegisterForm: React.FC = () => {
         phone: fullPhoneNumber,
         documentType: formData.documentType,
         documentNumber: formData.documentNumber.trim(),
-        headquartersId: "1", // Default - should be selected in real app
+        headquartersId: 1, // Default headquarters ID as integer
       });
       
       if (result.success) {
@@ -239,6 +254,7 @@ const RegisterForm: React.FC = () => {
 
   return (
     <Box
+      className="gradient-bg"
       sx={{
         minHeight: '100vh',
         width: '100vw',

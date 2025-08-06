@@ -109,60 +109,6 @@ const Dashboard: React.FC = () => {
 
   return (
     <Box sx={{ flexGrow: 1 }}>
-      {/* App Bar */}
-      <AppBar position="static">
-        <Toolbar>
-          <DashboardIcon sx={{ mr: 2 }} />
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            ITDimenzion - Panel de Control
-          </Typography>
-          
-          <IconButton color="inherit" sx={{ mr: 1 }}>
-            <Notifications />
-          </IconButton>
-          
-          <IconButton
-            size="large"
-            aria-label="account of current user"
-            aria-controls="menu-appbar"
-            aria-haspopup="true"
-            onClick={handleMenu}
-            color="inherit"
-          >
-            <AccountCircle />
-          </IconButton>
-          
-          <Menu
-            id="menu-appbar"
-            anchorEl={anchorEl}
-            anchorOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
-            keepMounted
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
-            open={Boolean(anchorEl)}
-            onClose={handleClose}
-          >
-            <MenuItem onClick={handleClose}>
-              <AccountCircle sx={{ mr: 1 }} />
-              Mi Perfil
-            </MenuItem>
-            <MenuItem onClick={handleClose}>
-              <Settings sx={{ mr: 1 }} />
-              Configuración
-            </MenuItem>
-            <Divider />
-            <MenuItem onClick={handleLogout}>
-              <ExitToApp sx={{ mr: 1 }} />
-              Cerrar Sesión
-            </MenuItem>
-          </Menu>
-        </Toolbar>
-      </AppBar>
 
       {/* Contenido Principal */}
       <Box sx={{ p: 3 }}>

@@ -74,7 +74,8 @@ api.interceptors.response.use(
         // Disparar evento personalizado para que la app maneje el logout
         window.dispatchEvent(new CustomEvent('auth:logout'));
         
-        return Promise.reject(refreshError);
+        // Solo rechazar con el error original, no el refresh error para evitar logs duplicados
+        return Promise.reject(error);
       }
     }
 

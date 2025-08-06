@@ -1,6 +1,6 @@
 import { createTheme } from '@mui/material/styles';
 
-// ITDimenzion Theme - Inspired by Vendu.com.co color scheme
+// ITDimenzion Theme
 const theme = createTheme({
   palette: {
     mode: 'light',
@@ -112,6 +112,11 @@ const theme = createTheme({
     MuiCssBaseline: {
       styleOverrides: {
         body: {
+          backgroundColor: '#ffffff',
+          minHeight: '100vh',
+        },
+        // Clase para fondos degradados especiales (login, register)
+        '.gradient-bg': {
           background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E6B 50%, #FFA726 100%)',
           minHeight: '100vh',
           position: 'relative',

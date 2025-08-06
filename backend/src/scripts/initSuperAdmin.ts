@@ -15,6 +15,7 @@ const initSuperAdmin = async () => {
       update: {},
       create: {
         name: 'ITDimenzion',
+        code: 'ITD001',
         nit: '900000000-1',
         address: 'Calle Principal #123',
         phone: '+57 300 123 4567',
@@ -32,6 +33,7 @@ const initSuperAdmin = async () => {
       update: {},
       create: {
         name: 'Sede Principal',
+        code: 'ITD001-HQ',
         address: 'Calle Principal #123',
         phone: '+57 300 123 4567',
         email: 'principal@itdimenzion.com',
@@ -42,39 +44,38 @@ const initSuperAdmin = async () => {
 
     console.log('✅ Sede principal creada/actualizada:', headquarters.name);
 
-    // Crear cargo de Administrador
-    const adminJobTitle = await prisma.jobTitle.upsert({
-      where: { 
-        id: headquarters.id + '-admin' 
-      },
-      update: {},
-      create: {
-        id: headquarters.id + '-admin',
-        name: 'Administrador del Sistema',
-        description: 'Administrador con acceso completo al sistema',
-        headquartersId: headquarters.id,
-        status: 'ACTIVE',
-      },
-    });
-
-    console.log('✅ Cargo de administrador creado/actualizado');
-
     // Crear proceso por defecto
     const defaultProcess = await prisma.process.upsert({
       where: { 
-        id: headquarters.id + '-admin-process' 
+        code: 'ADMIN-PROC' 
       },
       update: {},
       create: {
-        id: headquarters.id + '-admin-process',
         name: 'Administración General',
+        code: 'ADMIN-PROC',
         description: 'Proceso de administración general del sistema',
-        headquartersId: headquarters.id,
         status: 'ACTIVE',
       },
     });
 
     console.log('✅ Proceso por defecto creado/actualizado');
+
+    // Crear cargo de Administrador
+    const adminJobTitle = await prisma.jobTitle.upsert({
+      where: { 
+        code: 'ADMIN-SYS' 
+      },
+      update: {},
+      create: {
+        name: 'Administrador del Sistema',
+        code: 'ADMIN-SYS',
+        description: 'Administrador con acceso completo al sistema',
+        processId: defaultProcess.id,
+        status: 'ACTIVE',
+      },
+    });
+
+    console.log('✅ Cargo de administrador creado/actualizado');
 
     // Contraseña por defecto
     const defaultPassword = 'H3lpD3sk.2025';
@@ -117,7 +118,7 @@ const initSuperAdmin = async () => {
             status: 'ACTIVE',
             emailVerified: true,
             loginAttempts: 0,
-            lockUntil: null,
+            lockedUntil: null,
           },
         });
         

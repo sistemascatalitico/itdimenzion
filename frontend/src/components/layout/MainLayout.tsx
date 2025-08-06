@@ -14,7 +14,6 @@ import {
   useTheme,
 } from '@mui/material';
 import {
-  Menu as MenuIcon,
   Notifications as NotificationsIcon,
   AccountCircle as AccountCircleIcon,
   Settings as SettingsIcon,
@@ -35,11 +34,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const { user, logout } = useAuth();
   
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [anchorElUser, setAnchorElUser] = useState<null | HTMLElement>(null);
-
-  const handleDrawerToggle = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
 
   const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorElUser(event.currentTarget);
@@ -72,59 +68,34 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         variant={isMobile ? 'temporary' : 'persistent'}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
 
-      {/* Main Content */}
-      <Box
-        component="main"
+      {/* Top AppBar - Posición fija que cubra toda la pantalla */}
+      <AppBar
+        position="fixed"
+        elevation={0}
         sx={{
-          flexGrow: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
+          zIndex: theme.zIndex.drawer - 1,
+          background: 'linear-gradient(135deg,rgb(249, 248, 248) 0%,rgb(251, 251, 251) 100%)',
+          backdropFilter: 'none',
+          borderBottom: 'none',
+          boxShadow: '0 14px 12px rgba(255, 107, 107, 0.3)',
+          color: 'white',
+          // Cubrir toda la pantalla desde el borde izquierdo
+          left: 0,
+          right: 0,
+          width: '100vw',
         }}
       >
-        {/* Top AppBar */}
-        <AppBar
-          position="sticky"
-          elevation={0}
-          sx={{
-            zIndex: theme.zIndex.drawer - 1,
-            backdropFilter: 'blur(20px)',
-            backgroundColor: 'rgba(255, 107, 107, 0.9)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-          }}
-        >
-          <Toolbar>
-            <IconButton
-              color="inherit"
-              aria-label="toggle drawer"
-              onClick={handleDrawerToggle}
-              edge="start"
-              sx={{ mr: 2 }}
-            >
-              <MenuIcon />
-            </IconButton>
-
-            <Typography
-              variant="h6"
-              noWrap
-              component="div"
-              sx={{
-                flexGrow: 1,
-                fontWeight: 600,
-                letterSpacing: '-0.01em',
-              }}
-            >
-              Panel de Control
-            </Typography>
-
-            {/* Notifications */}
+          <Toolbar sx={{ justifyContent: 'flex-end', minHeight: '64px !important' }}>
+            {/* Solo iconos del usuario a la derecha */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <IconButton
                 size="large"
-                color="inherit"
                 sx={{
+                  color: 'white',
                   '&:hover': {
                     backgroundColor: 'rgba(255, 255, 255, 0.1)',
                   },
@@ -139,9 +110,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               <IconButton
                 size="large"
                 onClick={handleUserMenuOpen}
-                color="inherit"
                 sx={{
                   p: 0.5,
+                  color: 'white',
                   '&:hover': {
                     backgroundColor: 'rgba(255, 255, 255, 0.1)',
                   },
@@ -151,8 +122,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   sx={{
                     width: 36,
                     height: 36,
-                    backgroundColor: 'white',
-                    color: 'primary.main',
+                    backgroundColor: '#FF69B4',
+                    color: 'white',
                     fontSize: '1rem',
                     fontWeight: 600,
                   }}
@@ -213,13 +184,32 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           </Toolbar>
         </AppBar>
 
+      {/* Main Content */}
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          marginTop: '64px', // Espacio para el AppBar fijo
+          transition: theme.transitions.create('margin', {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
+          ...(sidebarOpen && !isMobile && {
+            marginLeft: sidebarCollapsed ? '70px' : '280px',
+          }),
+        }}
+      >
         {/* Content Area */}
         <Box
           sx={{
             flexGrow: 1,
             p: 3,
             overflow: 'auto',
-            backgroundColor: 'transparent',
+            backgroundColor: '#ffffff',
+            minHeight: 'calc(100vh - 64px)', // Altura total menos AppBar
           }}
         >
           {children || <Outlet />}

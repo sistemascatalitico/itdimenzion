@@ -26,9 +26,9 @@ interface RegisterData {
   documentType: string;
   documentNumber: string;
   phone?: string;
-  headquartersId: string;
-  jobTitleId?: string;
-  processId?: string;
+  headquartersId: number;
+  jobTitleId?: number;
+  processId?: number;
 }
 
 type AuthAction =
@@ -115,9 +115,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return emailRegex.test(email);
   };
 
-  // Función para validar contraseña
+  // Función para validar contraseña - debe coincidir con backend
   const isValidPassword = (password: string): boolean => {
     return password.length >= 8 && 
+           password.length <= 128 &&
            /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/.test(password);
   };
 
@@ -215,7 +216,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return { success: false, error: errorMessage };
       }
 
-      await api.post('/auth/register', sanitizedData);
+      const response = await api.post('/auth/register', sanitizedData);
 
       // No hacer login automático por seguridad
       dispatch({ type: 'AUTH_LOGOUT' });
@@ -267,13 +268,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Verificar autenticación al cargar la app
   useEffect(() => {
     const initAuth = async () => {
+      // Solo intentar refresh si hay posibilidad de token existente
+      const hasToken = getAccessToken();
+      
+      if (!hasToken) {
+        // No hay token, directamente logout sin intentar refresh
+        dispatch({ type: 'AUTH_LOGOUT' });
+        return;
+      }
+
       try {
         dispatch({ type: 'AUTH_START' });
         
         // Intentar obtener el perfil (esto también refrescará el token si es necesario)
         await refreshProfile();
       } catch (error) {
-        // Si falla, el usuario no está autenticado
+        // Si falla, el usuario no está autenticado - no hacer log de error
         dispatch({ type: 'AUTH_LOGOUT' });
       }
     };

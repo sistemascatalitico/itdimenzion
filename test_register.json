@@ -1,0 +1,10 @@
+{
+  "email": "test2@example.com",
+  "password": "TestPass123!",
+  "firstName": "Jane",
+  "lastName": "Smith",
+  "documentType": "CEDULA",
+  "documentNumber": "87654321",
+  "phone": "+573007654321",
+  "headquartersId": 1
+}

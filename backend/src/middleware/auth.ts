@@ -59,7 +59,7 @@ export const authenticateToken = async (
       id: user.id,
       email: user.email,
       role: user.role,
-      headquartersId: user.headquartersId,
+      headquartersId: user.headquartersId?.toString() || '0',
     };
 
     next();
@@ -165,7 +165,7 @@ export const requireSameHeadquarters = async (
         });
       }
 
-      if (targetUser.headquartersId !== req.user.headquartersId) {
+      if (targetUser.headquartersId?.toString() !== req.user.headquartersId) {
         return res.status(403).json({
           error: 'Access denied - different headquarters',
           statusCode: 403,

@@ -125,6 +125,7 @@ const LoginForm: React.FC = () => {
 
   return (
     <Box
+      className="gradient-bg"
       sx={{
         minHeight: '100vh',
         width: '100vw',
