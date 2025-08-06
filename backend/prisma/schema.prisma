@@ -14,11 +14,9 @@ enum UserRole {
   USER
 }
 
-enum UserStatus {
+enum Status {
   ACTIVE
   INACTIVE
-  LOCKED
-  PENDING_VERIFICATION
 }
 
 enum DocumentType {
@@ -30,78 +28,119 @@ enum DocumentType {
   PASSPORT
 }
 
+enum AssetStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  RETIRED
+}
+
+enum AssetCondition {
+  NEW
+  GOOD
+  FAIR
+  POOR
+}
+
 model Company {
-  id           String        @id @default(cuid())
-  name         String
-  nit          String        @unique
-  address      String?
-  phone        String?
-  email        String?
-  website      String?
-  logo         String?
-  status       UserStatus    @default(ACTIVE)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id          Int           @id @default(autoincrement())
+  name        String        @unique
+  description String?       @db.Text
+  email       String?
+  phone       String?
+  address     String?       @db.Text
+  city        String?
+  state       String?
+  country     String?
+  website     String?
+  logo        String?
+  status      Status        @default(ACTIVE)
+  code        String        @unique
+  nit         String        @unique
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  createdBy   String?
+  updatedBy   String?
   
-  headquarters Headquarters[]
+  headquarters      Headquarters[]
+  users            User[]
+  assets           Asset[]
+  companyProcesses CompanyProcess[]
+  companyJobTitles CompanyJobTitle[]
   
   @@map("companies")
 }
 
 model Headquarters {
-  id          String     @id @default(cuid())
-  name        String
-  address     String?
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?   @db.Text
+  address     String?   @db.Text
+  city        String?
+  state       String?
+  country     String?
   phone       String?
   email       String?
-  companyId   String
-  status      UserStatus @default(ACTIVE)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  status      Status    @default(ACTIVE)
+  code        String    @unique
+  companyId   Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   String?
+  updatedBy   String?
   
-  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   users       User[]
-  processes   Process[]
-  jobTitles   JobTitle[]
+  assets      Asset[]
   
   @@map("headquarters")
 }
 
 model User {
   id                    String       @id @default(cuid())
+  documentType          DocumentType
+  username              String?      @unique
   email                 String       @unique
   password              String
   firstName             String
   lastName              String
-  documentType          DocumentType
-  documentNumber        String       @unique
   phone                 String?
   role                  UserRole     @default(USER)
-  status                UserStatus   @default(PENDING_VERIFICATION)
-  headquartersId        String
-  jobTitleId            String?
-  processId             String?
+  status                Status       @default(ACTIVE)
+  lastLogin             DateTime?
+  loginAttempts         Int          @default(0)
+  lockedUntil           DateTime?
+  resetToken            String?
+  resetTokenExpiry      DateTime?
+  companyId             Int?
+  headquartersId        Int?
+  processId             Int?
+  jobTitleId            Int?
+  documentNumber        String       @unique
   emailVerified         Boolean      @default(false)
   emailVerificationToken String?     @unique
   passwordResetToken     String?     @unique
   passwordResetExpires   DateTime?
-  loginAttempts          Int          @default(0)
-  lockUntil              DateTime?
-  lastLogin              DateTime?
   twoFactorEnabled       Boolean      @default(false)
   twoFactorSecret        String?
   profilePicture         String?
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
   createdBy             String?
+  updatedBy             String?
   
-  headquarters          Headquarters @relation(fields: [headquartersId], references: [id])
-  jobTitle              JobTitle?    @relation(fields: [jobTitleId], references: [id])
+  company               Company?     @relation(fields: [companyId], references: [id])
+  headquarters          Headquarters? @relation(fields: [headquartersId], references: [id])
   process               Process?     @relation(fields: [processId], references: [id])
+  jobTitle              JobTitle?    @relation(fields: [jobTitleId], references: [id])
   creator               User?        @relation("UserCreatedBy", fields: [createdBy], references: [id])
   createdUsers          User[]       @relation("UserCreatedBy")
   refreshTokens         RefreshToken[]
   loginLogs             LoginLog[]
+  userGroupMembers      UserGroupMember[]
+  assignedAssets        Asset[]      @relation("AssetAssignedTo")
+  createdAssets         Asset[]      @relation("AssetCreatedBy")
+  updatedAssets         Asset[]      @relation("AssetUpdatedBy")
   
   @@index([email])
   @@index([documentNumber])
@@ -137,34 +176,205 @@ model LoginLog {
   @@map("login_logs")
 }
 
-model JobTitle {
-  id             String       @id @default(cuid())
-  name           String
-  description    String?
-  headquartersId String
-  status         UserStatus   @default(ACTIVE)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+model Process {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?   @db.Text
+  status      Status    @default(ACTIVE)
+  code        String    @unique
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   String?
+  updatedBy   String?
   
-  headquarters   Headquarters @relation(fields: [headquartersId], references: [id], onDelete: Cascade)
-  users          User[]
+  users            User[]
+  jobTitles        JobTitle[]
+  companyProcesses CompanyProcess[]
+  
+  @@map("processes")
+}
+
+model JobTitle {
+  id               Int       @id @default(autoincrement())
+  name             String    @unique
+  description      String?   @db.Text
+  status           Status    @default(ACTIVE)
+  code             String    @unique
+  processId        Int
+  processManager   Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdBy        String?
+  updatedBy        String?
+  
+  process          Process   @relation(fields: [processId], references: [id], onDelete: Cascade)
+  users            User[]
+  companyJobTitles CompanyJobTitle[]
   
   @@map("job_titles")
 }
 
-model Process {
-  id             String       @id @default(cuid())
+// User Groups System
+model UserGroup {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?   @db.Text
+  status      Status    @default(ACTIVE)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  
+  members     UserGroupMember[]
+  
+  @@map("user_groups")
+}
+
+model UserGroupMember {
+  id          Int       @id @default(autoincrement())
+  userId      String
+  userGroupId Int
+  createdAt   DateTime  @default(now())
+  createdBy   String?
+  
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userGroup   UserGroup @relation(fields: [userGroupId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, userGroupId])
+  @@map("user_group_members")
+}
+
+// Asset Management System
+model AssetCategory {
+  id           Int       @id @default(autoincrement())
+  name         String    @unique
+  label        String    @unique
+  description  String?   @db.Text
+  status       Status    @default(ACTIVE)
+  isPersistent Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  createdBy    String?
+  updatedBy    String?
+  
+  assets       Asset[]
+  assetGroups  AssetGroup[]
+  
+  @@map("asset_categories")
+}
+
+model AssetGroup {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?   @db.Text
+  status      Status    @default(ACTIVE)
+  isSystem    Boolean   @default(false)
+  categoryId  Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  
+  category    AssetCategory @relation(fields: [categoryId], references: [id])
+  assets      Asset[]
+  
+  @@map("asset_groups")
+}
+
+model AssetManufacturer {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?   @db.Text
+  website     String?
+  status      Status    @default(ACTIVE)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  
+  models      AssetModel[]
+  
+  @@map("asset_manufacturers")
+}
+
+model AssetModel {
+  id             Int       @id @default(autoincrement())
   name           String
-  description    String?
-  headquartersId String
-  status         UserStatus   @default(ACTIVE)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  description    String?   @db.Text
+  manufacturerId Int
+  status         Status    @default(ACTIVE)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdBy      String?
+  updatedBy      String?
   
-  headquarters   Headquarters @relation(fields: [headquartersId], references: [id], onDelete: Cascade)
-  users          User[]
+  manufacturer   AssetManufacturer @relation(fields: [manufacturerId], references: [id])
+  assets         Asset[]
   
-  @@map("processes")
+  @@unique([name, manufacturerId])
+  @@map("asset_models")
+}
+
+model Asset {
+  id                  Int           @id @default(autoincrement())
+  name                String
+  description         String?       @db.Text
+  serialNumber        String?
+  status              AssetStatus   @default(ACTIVE)
+  condition           AssetCondition @default(NEW)
+  purchaseDate        DateTime?
+  warrantyExpiration  DateTime?
+  notes               String?       @db.Text
+  categoryId          Int
+  modelId             Int
+  groupId             Int
+  companyId           Int
+  headquartersId      Int
+  assignedUserId      String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  createdById         String
+  updatedById         String?
+  
+  category            AssetCategory @relation(fields: [categoryId], references: [id])
+  model               AssetModel    @relation(fields: [modelId], references: [id])
+  group               AssetGroup    @relation(fields: [groupId], references: [id])
+  company             Company       @relation(fields: [companyId], references: [id])
+  headquarters        Headquarters  @relation(fields: [headquartersId], references: [id])
+  assignedUser        User?         @relation("AssetAssignedTo", fields: [assignedUserId], references: [id])
+  createdBy           User          @relation("AssetCreatedBy", fields: [createdById], references: [id])
+  updatedBy           User?         @relation("AssetUpdatedBy", fields: [updatedById], references: [id])
+  
+  @@map("assets")
+}
+
+// Many-to-Many Relationship Tables
+model CompanyProcess {
+  id        Int      @id @default(autoincrement())
+  companyId Int
+  processId Int
+  createdAt DateTime @default(now())
+  createdBy String?
+  
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  process   Process  @relation(fields: [processId], references: [id], onDelete: Cascade)
+  
+  @@unique([companyId, processId])
+  @@map("company_processes")
+}
+
+model CompanyJobTitle {
+  id         Int      @id @default(autoincrement())
+  companyId  Int
+  jobTitleId Int
+  createdAt  DateTime @default(now())
+  createdBy  String?
+  
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  jobTitle   JobTitle @relation(fields: [jobTitleId], references: [id], onDelete: Cascade)
+  
+  @@unique([companyId, jobTitleId])
+  @@map("company_job_titles")
 }
 
 model AuditLog {

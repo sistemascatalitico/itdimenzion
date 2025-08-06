@@ -85,5 +85,8 @@ prisma/migrations/*/migration.sql
 
 # Claude Code specific
 .claude/
+CLAUDE.md
+CLAUDE.log
+MCP_Actualizacion.md
 GEMINI.md
 GEMINI.log

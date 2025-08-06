@@ -1,37 +1,64 @@
 import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
-import { CssBaseline, Box, CircularProgress } from '@mui/material';
+import { CssBaseline } from '@mui/material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import secureTheme from './theme/theme';
 import LoginForm from './components/auth/LoginForm';
+import RegisterForm from './components/auth/RegisterForm';
+import MainLayout from './components/layout/MainLayout';
 import Dashboard from './components/layout/Dashboard';
+import ProtectedRoute from './components/common/ProtectedRoute';
 
-// Componente principal de la aplicación
-const AppContent: React.FC = () => {
+/**
+ * Root redirect component - redirects to appropriate route based on auth status
+ */
+const RootRedirect: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
-
-  // Mostrar indicador de carga durante la inicialización
+  
   if (isLoading) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh',
-          backgroundColor: '#f5f5f5',
-        }}
-      >
-        <CircularProgress size={60} />
-      </Box>
-    );
+    return null; // Let the loading be handled by individual components
   }
-
-  // Mostrar dashboard si está autenticado, login si no
-  return isAuthenticated ? <Dashboard /> : <LoginForm />;
+  
+  return <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />;
 };
 
-// Componente raíz con todos los providers
+/**
+ * Main app content with routing configuration
+ */
+const AppContent: React.FC = () => {
+  return (
+    <Router>
+      <Routes>
+        {/* Root redirect */}
+        <Route path="/" element={<RootRedirect />} />
+        
+        {/* Public routes */}
+        <Route path="/login" element={<LoginForm />} />
+        <Route path="/register" element={<RegisterForm />} />
+        
+        {/* Protected routes */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <Dashboard />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Catch all route - redirect to root */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Router>
+  );
+};
+
+/**
+ * Root application component with all providers
+ */
 const App: React.FC = () => {
   return (
     <ThemeProvider theme={secureTheme}>

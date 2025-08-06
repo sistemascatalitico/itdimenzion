@@ -11,9 +11,9 @@ interface AuthState {
 }
 
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
-  register: (userData: RegisterData) => Promise<void>;
+  register: (userData: RegisterData) => Promise<{ success: boolean; error?: string }>;
   clearError: () => void;
   refreshProfile: () => Promise<void>;
 }
@@ -121,7 +121,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
            /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/.test(password);
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       dispatch({ type: 'AUTH_START' });
 
@@ -129,11 +129,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const sanitizedEmail = sanitizeInput(email).toLowerCase();
       
       if (!isValidEmail(sanitizedEmail)) {
-        throw new Error('Email no válido');
+        const errorMessage = 'Email no válido';
+        dispatch({ 
+          type: 'AUTH_FAILURE', 
+          payload: { error: errorMessage } 
+        });
+        return { success: false, error: errorMessage };
       }
 
-      if (!password || password.length < 8) {
-        throw new Error('Contraseña debe tener al menos 8 caracteres');
+      if (!password || password.length < 6) {
+        const errorMessage = 'Contraseña debe tener al menos 6 caracteres';
+        dispatch({ 
+          type: 'AUTH_FAILURE', 
+          payload: { error: errorMessage } 
+        });
+        return { success: false, error: errorMessage };
       }
 
       const response = await api.post('/auth/login', {
@@ -151,17 +161,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         payload: { user } 
       });
 
+      return { success: true };
+
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Error en el login';
       dispatch({ 
         type: 'AUTH_FAILURE', 
         payload: { error: errorMessage } 
       });
-      throw error;
+      return { success: false, error: errorMessage };
     }
   };
 
-  const register = async (userData: RegisterData) => {
+  const register = async (userData: RegisterData): Promise<{ success: boolean; error?: string }> => {
     try {
       dispatch({ type: 'AUTH_START' });
 
@@ -177,21 +189,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Validaciones del cliente
       if (!isValidEmail(sanitizedData.email)) {
-        throw new Error('Email no válido');
+        const errorMessage = 'Email no válido';
+        dispatch({ 
+          type: 'AUTH_FAILURE', 
+          payload: { error: errorMessage } 
+        });
+        return { success: false, error: errorMessage };
       }
 
       if (!isValidPassword(userData.password)) {
-        throw new Error('La contraseña debe tener al menos 8 caracteres, incluyendo mayúsculas, minúsculas, números y símbolos');
+        const errorMessage = 'La contraseña debe tener al menos 8 caracteres, incluyendo mayúsculas, minúsculas, números y símbolos';
+        dispatch({ 
+          type: 'AUTH_FAILURE', 
+          payload: { error: errorMessage } 
+        });
+        return { success: false, error: errorMessage };
       }
 
       if (sanitizedData.firstName.length < 2 || sanitizedData.lastName.length < 2) {
-        throw new Error('Nombre y apellido deben tener al menos 2 caracteres');
+        const errorMessage = 'Nombre y apellido deben tener al menos 2 caracteres';
+        dispatch({ 
+          type: 'AUTH_FAILURE', 
+          payload: { error: errorMessage } 
+        });
+        return { success: false, error: errorMessage };
       }
 
       await api.post('/auth/register', sanitizedData);
 
       // No hacer login automático por seguridad
       dispatch({ type: 'AUTH_LOGOUT' });
+      return { success: true };
 
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Error en el registro';
@@ -199,7 +227,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         type: 'AUTH_FAILURE', 
         payload: { error: errorMessage } 
       });
-      throw error;
+      return { success: false, error: errorMessage };
     }
   };
 

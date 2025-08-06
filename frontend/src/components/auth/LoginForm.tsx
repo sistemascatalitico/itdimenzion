@@ -4,13 +4,13 @@ import {
   Button,
   TextField,
   Typography,
-  Paper,
+  Card,
+  CardContent,
   Alert,
   InputAdornment,
   IconButton,
   FormControlLabel,
   Checkbox,
-  Link,
   Divider,
 } from '@mui/material';
 import {
@@ -18,291 +18,314 @@ import {
   VisibilityOff,
   Email,
   Lock,
-  Security,
+  Login as LoginIcon,
 } from '@mui/icons-material';
-import { useForm, Controller } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { LoginCredentials } from '../../types/auth';
 
-// Esquema de validación con Yup
-const loginSchema = yup.object({
-  email: yup
-    .string()
-    .required('Email es requerido')
-    .email('Email debe ser válido')
-    .max(255, 'Email no puede exceder 255 caracteres'),
-  password: yup
-    .string()
-    .required('Contraseña es requerida')
-    .min(8, 'Contraseña debe tener al menos 8 caracteres'),
-});
-
-interface LoginFormProps {
-  onSwitchToRegister?: () => void;
+interface LoginData {
+  email: string;
+  password: string;
+  rememberMe: boolean;
 }
 
-const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
-  const { login, isLoading, error, clearError } = useAuth();
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [loginAttempts, setLoginAttempts] = useState(0);
-  const [isBlocked, setIsBlocked] = useState(false);
-  const [blockTimeLeft, setBlockTimeLeft] = useState(0);
+interface LoginErrors {
+  email?: string;
+  password?: string;
+  general?: string;
+}
 
-  const {
-    control,
-    handleSubmit,
-    formState: { errors, isValid },
-    reset,
-  } = useForm<LoginCredentials>({
-    resolver: yupResolver(loginSchema),
-    mode: 'onChange',
+const LoginForm: React.FC = () => {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+  
+  const [formData, setFormData] = useState<LoginData>({
+    email: '',
+    password: '',
+    rememberMe: false,
   });
 
-  // Manejar bloqueo temporal por múltiples intentos fallidos
-  useEffect(() => {
-    if (loginAttempts >= 3) {
-      setIsBlocked(true);
-      setBlockTimeLeft(300); // 5 minutos
+  const [errors, setErrors] = useState<LoginErrors>({});
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-      const interval = setInterval(() => {
-        setBlockTimeLeft((prev) => {
-          if (prev <= 1) {
-            setIsBlocked(false);
-            setLoginAttempts(0);
-            clearInterval(interval);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+  const validateForm = (): boolean => {
+    const newErrors: LoginErrors = {};
 
-      return () => clearInterval(interval);
+    // Email validation
+    if (!formData.email.trim()) {
+      newErrors.email = 'El email es obligatorio';
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        newErrors.email = 'Ingrese un email válido';
+      }
     }
-  }, [loginAttempts]);
 
-  // Limpiar errores cuando el usuario comience a escribir
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(clearError, 5000);
-      return () => clearTimeout(timer);
+    // Password validation
+    if (!formData.password) {
+      newErrors.password = 'La contraseña es obligatoria';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
     }
-  }, [error, clearError]);
 
-  const onSubmit = async (data: LoginCredentials) => {
-    if (isBlocked) return;
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleInputChange = (field: keyof LoginData) => (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = field === 'rememberMe' ? event.target.checked : event.target.value;
+    setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear error when user starts typing
+    if (errors[field as keyof LoginErrors]) {
+      setErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+    if (errors.general) {
+      setErrors(prev => ({ ...prev, general: undefined }));
+    }
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
+    setErrors({});
 
     try {
-      await login(data.email, data.password);
-      setLoginAttempts(0);
-      reset();
+      const result = await login(formData.email.trim().toLowerCase(), formData.password);
+      
+      if (result.success) {
+        // Redirect based on user role or intended destination
+        const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/dashboard';
+        navigate(redirectTo);
+      } else {
+        setErrors({ general: result.error || 'Error en el inicio de sesión' });
+      }
     } catch (error) {
-      setLoginAttempts((prev) => prev + 1);
+      setErrors({ general: 'Error de conexión. Verifique su conexión a internet.' });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleTogglePassword = () => {
-    setShowPassword(!showPassword);
+  const handleForgotPassword = () => {
+    navigate('/forgot-password');
   };
 
-  const formatTime = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  const handleRegister = () => {
+    navigate('/register');
   };
 
   return (
     <Box
       sx={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
         minHeight: '100vh',
-        backgroundColor: '#f5f5f5',
-        padding: 2,
+        width: '100vw',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        p: 2,
       }}
     >
-      <Paper
-        elevation={3}
+      <Card
         sx={{
-          padding: 4,
-          maxWidth: 400,
-          width: '100%',
-          borderRadius: 2,
+          width: { xs: '90%', sm: '400px' },
+          maxWidth: '400px',
+          borderRadius: 1,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+          border: '1px solid rgba(255,255,255,0.1)',
         }}
       >
-        {/* Header */}
-        <Box sx={{ textAlign: 'center', mb: 3 }}>
-          <Security sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
-          <Typography variant="h4" component="h1" gutterBottom>
-            ITDimenzion
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Acceso Seguro al Sistema
-          </Typography>
-        </Box>
-
-        {/* Alertas de seguridad */}
-        {isBlocked && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            Cuenta temporalmente bloqueada por múltiples intentos fallidos.
-            <br />
-            Tiempo restante: {formatTime(blockTimeLeft)}
-          </Alert>
-        )}
-
-        {loginAttempts > 0 && loginAttempts < 3 && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            Intento {loginAttempts} de 3. Después del 3er intento fallido, 
-            la cuenta será bloqueada temporalmente.
-          </Alert>
-        )}
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        {/* Formulario */}
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
-          <Controller
-            name="email"
-            control={control}
-            defaultValue=""
-            render={({ field }) => (
-              <TextField
-                {...field}
-                fullWidth
-                label="Correo Electrónico"
-                type="email"
-                autoComplete="email"
-                disabled={isLoading || isBlocked}
-                error={!!errors.email}
-                helperText={errors.email?.message}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Email />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ mb: 2 }}
-              />
-            )}
-          />
-
-          <Controller
-            name="password"
-            control={control}
-            defaultValue=""
-            render={({ field }) => (
-              <TextField
-                {...field}
-                fullWidth
-                label="Contraseña"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                disabled={isLoading || isBlocked}
-                error={!!errors.password}
-                helperText={errors.password?.message}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Lock />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={handleTogglePassword}
-                        disabled={isLoading || isBlocked}
-                        edge="end"
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ mb: 2 }}
-              />
-            )}
-          />
-
-          {/* Opciones adicionales */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  disabled={isLoading || isBlocked}
-                />
-              }
-              label="Recordar sesión"
-            />
-            <Link
-              href="#"
-              variant="body2"
-              onClick={(e) => {
-                e.preventDefault();
-                // TODO: Implementar recuperación de contraseña
+        <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
+          {/* Header */}
+          <Box textAlign="center" mb={3}>
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 700,
+                mb: 1,
+                fontSize: { xs: '1.8rem', sm: '2rem' },
               }}
             >
-              ¿Olvidaste tu contraseña?
-            </Link>
+              <span style={{ color: '#FF69B4' }}>IT</span>
+              <span style={{ color: '#FFA726' }}>DIMENZION</span>
+            </Typography>
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                fontWeight: 600, 
+                color: 'text.primary',
+                fontSize: { xs: '1rem', sm: '1.1rem' },
+                mb: 0.5 
+              }}
+            >
+              ¡Hola!
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Para continuar, inicia sesión
+            </Typography>
           </Box>
 
-          {/* Botón de login */}
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            size="large"
-            disabled={isLoading || isBlocked || !isValid}
-            sx={{ mb: 2 }}
-          >
-            {isLoading ? 'Iniciando Sesión...' : 'Iniciar Sesión'}
-          </Button>
+          {/* Error Message */}
+          {errors.general && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {errors.general}
+            </Alert>
+          )}
 
-          {/* Divider */}
-          <Divider sx={{ my: 2 }}>
-            <Typography variant="body2" color="text.secondary">
-              o
-            </Typography>
-          </Divider>
+          {/* Login Form */}
+          <Box component="form" onSubmit={handleSubmit}>
+            {/* Email Field */}
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              value={formData.email}
+              onChange={handleInputChange('email')}
+              error={!!errors.email}
+              helperText={errors.email}
+              margin="normal"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 1,
+                }
+              }}
+            />
 
-          {/* Link a registro */}
-          {onSwitchToRegister && (
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="body2">
-                ¿No tienes cuenta?{' '}
-                <Link
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onSwitchToRegister();
+            {/* Password Field */}
+            <TextField
+              fullWidth
+              label="Contraseña"
+              type={showPassword ? 'text' : 'password'}
+              value={formData.password}
+              onChange={handleInputChange('password')}
+              error={!!errors.password}
+              helperText={errors.password}
+              margin="normal"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 1,
+                }
+              }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPassword(!showPassword)}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+
+            {/* Remember Me & Forgot Password */}
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mt: 2,
+                mb: 3,
+              }}
+            >
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.rememberMe}
+                    onChange={handleInputChange('rememberMe')}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Typography variant="body2" color="text.secondary">
+                    Recordarme
+                  </Typography>
+                }
+              />
+              <Button
+                variant="text"
+                onClick={handleForgotPassword}
+                sx={{
+                  textDecoration: 'underline',
+                  fontSize: '0.875rem',
+                  color: 'primary.main',
+                }}
+              >
+                ¿Olvidó su contraseña?
+              </Button>
+            </Box>
+
+            {/* Login Button */}
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              size="large"
+              disabled={loading}
+              sx={{
+                py: 1.8,
+                fontSize: '1rem',
+                fontWeight: 600,
+                mb: 3,
+                mt: 2,
+                borderRadius: 6,
+                textTransform: 'uppercase',
+              }}
+            >
+              {loading ? 'Iniciando...' : 'INGRESAR'}
+            </Button>
+
+            {/* Register Link */}
+            <Box textAlign="center">
+              <Typography variant="body2" color="text.secondary" mb={2}>
+                ¿No tienes una cuenta?{' '}
+                <Button
+                  variant="text"
+                  onClick={handleRegister}
+                  sx={{
+                    textDecoration: 'underline',
+                    fontSize: '0.875rem',
+                    color: '#FF69B4',
+                    p: 0,
+                    minWidth: 'auto',
+                    fontWeight: 500,
                   }}
-                  sx={{ cursor: 'pointer' }}
                 >
-                  Regístrate aquí
-                </Link>
+                  Regístrate
+                </Button>
               </Typography>
             </Box>
-          )}
-        </form>
+          </Box>
 
-        {/* Footer de seguridad */}
-        <Box sx={{ mt: 3, textAlign: 'center' }}>
-          <Typography variant="caption" color="text.secondary">
-            🔒 Conexión segura con cifrado SSL/TLS
-            <br />
-            🛡️ Sistema protegido contra ataques
-          </Typography>
-        </Box>
-      </Paper>
+          {/* Footer */}
+          <Box
+            textAlign="center"
+            mt={4}
+            pt={3}
+            sx={{
+              borderTop: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            <Typography variant="caption" color="text.secondary">
+              © 2025 ITDimenzion. Todos los derechos reservados.
+            </Typography>
+          </Box>
+        </CardContent>
+      </Card>
     </Box>
   );
 };

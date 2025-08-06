@@ -10,9 +10,8 @@
         "chokidar": "^4.0.3"
     },
     "scripts": {
-      "watch-gemini": "node gemini-logger.js"
-   },
-   "scripts": {
-     "watch-claude": "node claude-logger.js"
-  }
+      "start": "pnpm -r --parallel start",
+      "watch-gemini": "node gemini-logger.js",
+      "watch-claude": "node claude-logger.js"
+   }
 }
