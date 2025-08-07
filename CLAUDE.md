@@ -13,22 +13,25 @@ ITDimenzion is a modern enterprise management system with a full-stack architect
 ## Development Commands
 
 ### Local Development (Without Docker) - RECOMMENDED
+
+**IMPORTANT**: This project uses **pnpm** as the package manager. Do NOT use npm directly for dependency installation.
+
 ```bash
 # Backend development
 cd backend
-npm run dev
+pnpm run dev
 
 # Frontend development (separate terminal)
 cd frontend
-npm start
+pnpm start
 
 # Database operations
 cd backend
-npm run db:generate    # Generate Prisma client
-npm run db:push        # Push schema to database
-npm run db:migrate     # Run migrations
-npm run db:studio      # Open Prisma Studio
-npm run init-super-admin  # Initialize super admin users
+pnpm run db:generate    # Generate Prisma client
+pnpm run db:push        # Push schema to database
+pnpm run db:migrate     # Run migrations
+pnpm run db:studio      # Open Prisma Studio
+pnpm run init-super-admin  # Initialize super admin users
 ```
 
 ### Docker Commands (Future Implementation)
@@ -46,40 +49,40 @@ docker-compose logs -f [service-name]
 ### Backend Commands (from /backend directory)
 ```bash
 # Development mode
-npm run dev
+pnpm run dev
 
 # Build TypeScript
-npm run build
+pnpm run build
 
 # Start production server
-npm start
+pnpm start
 
 # Database operations
-npm run db:generate    # Generate Prisma client
-npm run db:push        # Push schema to database
-npm run db:migrate     # Run migrations
-npm run db:studio      # Open Prisma Studio
+pnpm run db:generate    # Generate Prisma client
+pnpm run db:push        # Push schema to database
+pnpm run db:migrate     # Run migrations
+pnpm run db:studio      # Open Prisma Studio
 
 # Initialize super admin user
-npm run init-super-admin
+pnpm run init-super-admin
 
 # Run tests
-npm test
+pnpm test
 ```
 
 ### Frontend Commands (from /frontend directory)
 ```bash
 # Development mode
-npm start
+pnpm start
 
 # Build for production
-npm run build
+pnpm run build
 
 # Run tests
-npm test
+pnpm test
 
 # Type checking
-npx tsc --noEmit
+pnpm exec tsc --noEmit
 ```
 
 ## Project Architecture
@@ -171,11 +174,13 @@ The project uses Jest for testing:
 
 ## Quick Start
 
+**Prerequisites**: Install [pnpm](https://pnpm.io/installation) globally: `npm install -g pnpm`
+
 1. **Setup Database**: Install MySQL and create `itdimenzion_db` database
 2. **Configure Environment**: Copy `.env.example` files and configure database connection
-3. **Install Dependencies**: Run `npm install` in both backend and frontend directories
-4. **Initialize Database**: Run `npm run db:push` and `npm run init-super-admin` in backend
-5. **Start Development**: Run `npm run dev` (backend) and `npm start` (frontend)
+3. **Install Dependencies**: Run `pnpm install` from the root directory (installs all workspaces)
+4. **Initialize Database**: Run `pnpm run db:push` and `pnpm run init-super-admin` in backend
+5. **Start Development**: Run `pnpm run dev` (backend) and `pnpm start` (frontend)
 
 See `DEV-SETUP.md` for detailed setup instructions.
 
@@ -249,3 +254,25 @@ Este archivo no contiene el log completo. Las acciones se registran en `CLAUDE.l
 - 2025-08-05T23:30:30.000Z | Scripts duplicados eliminados
 - 2025-08-05T23:30:45.000Z | AuthContext actualizado para compatibilidad
 - 2025-08-05T23:31:00.000Z | MainLayout modificado para soporte children
+
+### Últimas Correcciones - 2025-08-07T03:00:00Z
+
+**SOLUCIONADO**: Error de importación formik/yup + gestión de dependencias
+
+#### Problema Resuelto:
+- ❌ **Error**: "Failed to resolve import 'formik'" en JobTitleForm.tsx
+- ❌ **Causa**: Conflicto entre npm workspace y gestión de dependencias
+- ❌ **Síntoma**: Pantalla en blanco tras error de importación
+
+#### Solución Implementada:
+- ✅ **Migración a pnpm**: Proyecto ahora usa pnpm como gestor principal
+- ✅ **Dependencias instaladas**: formik 2.4.6 + yup 1.7.0 correctamente
+- ✅ **Workspace limpio**: Eliminado package-lock.json, usa pnpm-lock.yaml
+- ✅ **Servidor funcional**: Frontend en http://localhost:3001 
+- ✅ **Componentes listos**: JobTitle, Company, Headquarters, Process forms
+
+#### Configuración de Desarrollo:
+- **Gestor de paquetes**: pnpm (OBLIGATORIO)
+- **Instalación**: `pnpm install` desde root
+- **Frontend**: `pnpm start` (puerto 3001)
+- **Backend**: `pnpm run dev` (puerto 4000)
