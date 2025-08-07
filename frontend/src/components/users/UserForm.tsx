@@ -22,6 +22,8 @@ import {
   Switch,
   FormControlLabel,
 } from '@mui/material';
+import SimplePhoneInput from '../common/SimplePhoneInput';
+import SecureLocationSelectors from '../common/SecureLocationSelectors';
 import {
   Visibility,
   VisibilityOff,

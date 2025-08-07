@@ -24,6 +24,8 @@ import {
 } from '@mui/icons-material';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import SimplePhoneInput from '../common/SimplePhoneInput';
+import SecureLocationSelectors from '../common/SecureLocationSelectors';
 
 // Types
 interface Company {

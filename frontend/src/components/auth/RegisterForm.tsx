@@ -28,7 +28,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import SimplePhoneInput from '../common/SimplePhoneInput';
-import SimpleLocationSelectors from '../common/SimpleLocationSelectors';
+import SecureLocationSelectors from '../common/SecureLocationSelectors';
+import { useMultiStep } from '../../hooks/useMultiStep';
+import { StepNavigator, ProgressBar } from '../common/MultiStepForm';
 
 // Document types for registration
 const documentTypes = [
@@ -82,6 +84,12 @@ const RegisterForm: React.FC = () => {
   const navigate = useNavigate();
   const { register } = useAuth();
   
+  // Multi-step navigation
+  const TOTAL_STEPS = 3;
+  const { currentStep, next, prev, goTo, isFirst, isLast } = useMultiStep({ 
+    steps: TOTAL_STEPS 
+  });
+  
   const [formData, setFormData] = useState<RegisterData>({
     firstName: '',
     lastName: '',
@@ -105,57 +113,85 @@ const RegisterForm: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const validateForm = (): boolean => {
+  // Estilos uniformes para todos los campos
+  const fieldStyles = {
+    '& .MuiOutlinedInput-root': {
+      borderRadius: 1,
+      '&:hover fieldset': {
+        borderColor: '#FF69B4',
+      },
+      '&.Mui-focused fieldset': {
+        borderColor: '#FF69B4',
+        boxShadow: '0 0 0 2px rgba(255, 105, 180, 0.2)',
+      },
+    },
+    '& .MuiInputLabel-root': {
+      '&.Mui-focused': {
+        color: '#FF69B4',
+      },
+    },
+    '& .MuiFormHelperText-root.Mui-error': {
+      color: '#FF69B4',
+      fontWeight: 500,
+    }
+  };
+
+  // Validación por pasos
+  const validateStep = (step: number): boolean => {
     const newErrors: RegisterErrors = {};
-
-    // Nombre
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = 'El nombre es obligatorio';
+    
+    switch (step) {
+      case 0: // Datos Personales
+        if (!formData.firstName.trim()) {
+          newErrors.firstName = 'El nombre es obligatorio';
+        }
+        if (!formData.lastName.trim()) {
+          newErrors.lastName = 'El apellido es obligatorio';
+        }
+        if (!formData.documentType) {
+          newErrors.documentType = 'Seleccione un tipo de documento';
+        }
+        if (!formData.documentNumber.trim()) {
+          newErrors.documentNumber = 'El número de documento es obligatorio';
+        }
+        if (!formData.email.trim()) {
+          newErrors.email = 'El email es obligatorio';
+        } else {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(formData.email)) {
+            newErrors.email = 'Ingrese un email válido';
+          }
+        }
+        break;
+        
+      case 1: // Ubicación (opcional)
+        // Validaciones opcionales de ubicación si se requieren
+        break;
+        
+      case 2: // Contraseñas
+        if (!formData.password) {
+          newErrors.password = 'La contraseña es obligatoria';
+        } else if (formData.password.length < 8) {
+          newErrors.password = 'La contraseña debe tener al menos 8 caracteres';
+        } else if (formData.password.length > 128) {
+          newErrors.password = 'La contraseña no puede exceder 128 caracteres';
+        } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/.test(formData.password)) {
+          newErrors.password = 'La contraseña debe contener al menos: 1 minúscula, 1 mayúscula, 1 número y 1 carácter especial';
+        }
+        if (!formData.confirmPassword) {
+          newErrors.confirmPassword = 'Confirme su contraseña';
+        } else if (formData.password !== formData.confirmPassword) {
+          newErrors.confirmPassword = 'Las contraseñas no coinciden';
+        }
+        break;
     }
-
-    // Apellido
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = 'El apellido es obligatorio';
-    }
-
-    // Email validation
-    if (!formData.email.trim()) {
-      newErrors.email = 'El email es obligatorio';
-    } else {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email)) {
-        newErrors.email = 'Ingrese un email válido';
-      }
-    }
-
-    // Documento
-    if (!formData.documentType) {
-      newErrors.documentType = 'Seleccione un tipo de documento';
-    }
-    if (!formData.documentNumber.trim()) {
-      newErrors.documentNumber = 'El número de documento es obligatorio';
-    }
-
-    // Contraseña - validación robusta según backend
-    if (!formData.password) {
-      newErrors.password = 'La contraseña es obligatoria';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'La contraseña debe tener al menos 8 caracteres';
-    } else if (formData.password.length > 128) {
-      newErrors.password = 'La contraseña no puede exceder 128 caracteres';
-    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/.test(formData.password)) {
-      newErrors.password = 'La contraseña debe contener al menos: 1 minúscula, 1 mayúscula, 1 número y 1 carácter especial';
-    }
-
-    // Confirmar contraseña
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Confirme su contraseña';
-    } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Las contraseñas no coinciden';
-    }
-
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const validateAllSteps = (): boolean => {
+    return validateStep(0) && validateStep(1) && validateStep(2);
   };
 
   const handleInputChange = (field: keyof RegisterData) => (
@@ -201,10 +237,37 @@ const RegisterForm: React.FC = () => {
     }
   };
 
+  // Manejo de navegación
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      next();
+    }
+  };
+
+  const handlePrev = () => {
+    // Limpiar errores del paso anterior
+    setErrors({});
+    prev();
+  };
+
+  const handleStepClick = (step: number) => {
+    // Validar pasos anteriores antes de saltar
+    let canNavigate = true;
+    for (let i = 0; i < step; i++) {
+      if (!validateStep(i)) {
+        canNavigate = false;
+        break;
+      }
+    }
+    if (canNavigate) {
+      goTo(step);
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     
-    if (!validateForm()) {
+    if (!validateAllSteps()) {
       return;
     }
 
@@ -244,6 +307,231 @@ const RegisterForm: React.FC = () => {
     navigate('/login');
   };
 
+  // Funciones de renderizado por pasos
+  const renderPersonalDataStep = () => (
+    <Box>
+      <Typography 
+        variant="h6" 
+        sx={{ 
+          mb: 3, 
+          textAlign: 'center', 
+          color: '#FF69B4',
+          fontWeight: 600 
+        }}
+      >
+        📋 Datos Personales
+      </Typography>
+      
+      {/* Nombre - Campo completo */}
+      <TextField
+        fullWidth
+        label="Nombre *"
+        value={formData.firstName}
+        onChange={handleInputChange('firstName')}
+        error={!!errors.firstName}
+        helperText={errors.firstName}
+        margin="normal"
+        sx={fieldStyles}
+      />
+
+      {/* Apellido - Campo completo */}
+      <TextField
+        fullWidth
+        label="Apellido *"
+        value={formData.lastName}
+        onChange={handleInputChange('lastName')}
+        error={!!errors.lastName}
+        helperText={errors.lastName}
+        margin="normal"
+        sx={fieldStyles}
+      />
+
+      {/* Tipo de Documento - Campo completo */}
+      <FormControl 
+        fullWidth 
+        error={!!errors.documentType}
+        margin="normal"
+        sx={fieldStyles}
+      >
+        <InputLabel>Tipo de Documento *</InputLabel>
+        <Select
+          value={formData.documentType}
+          onChange={handleInputChange('documentType')}
+          input={<OutlinedInput label="Tipo de Documento *" />}
+        >
+          {documentTypes.map((type) => (
+            <MenuItem key={type.value} value={type.value}>
+              {type.label}
+            </MenuItem>
+          ))}
+        </Select>
+        {errors.documentType && (
+          <Typography variant="caption" sx={{ mt: 0.5, ml: 2, color: '#FF69B4', fontWeight: 500 }}>
+            {errors.documentType}
+          </Typography>
+        )}
+      </FormControl>
+
+      {/* Número de Documento - Campo completo */}
+      <TextField
+        fullWidth
+        label="Número de Documento *"
+        value={formData.documentNumber}
+        onChange={handleInputChange('documentNumber')}
+        error={!!errors.documentNumber}
+        helperText={errors.documentNumber}
+        margin="normal"
+        sx={fieldStyles}
+      />
+
+      {/* Email - Campo completo */}
+      <TextField
+        fullWidth
+        label="Email *"
+        type="email"
+        value={formData.email}
+        onChange={handleInputChange('email')}
+        error={!!errors.email}
+        helperText={errors.email}
+        margin="normal"
+        sx={fieldStyles}
+      />
+
+      {/* Phone Input */}
+      <Box sx={{ mt: 2 }}>
+        <SimplePhoneInput
+          value={formData.phone}
+          onChange={handlePhoneChange}
+          error={!!errors.phone}
+          helperText={errors.phone}
+          label="Teléfono"
+          placeholder="300 123 4567"
+          required={false}
+        />
+      </Box>
+    </Box>
+  );
+
+  const renderLocationStep = () => (
+    <Box>
+      <Typography 
+        variant="h6" 
+        sx={{ 
+          mb: 3, 
+          textAlign: 'center', 
+          color: '#FF69B4',
+          fontWeight: 600 
+        }}
+      >
+        📍 Ubicación
+      </Typography>
+      
+      <SecureLocationSelectors
+        value={formData.location}
+        onChange={handleLocationChange}
+        error={errors.location}
+        required={false}
+        enableDynamicLoading={false}
+      />
+
+      <Typography 
+        variant="body2" 
+        color="text.secondary"
+        sx={{ mt: 2, textAlign: 'center', fontStyle: 'italic' }}
+      >
+        La información de ubicación es opcional pero nos ayuda a brindarte un mejor servicio
+      </Typography>
+    </Box>
+  );
+
+  const renderPasswordStep = () => (
+    <Box>
+      <Typography 
+        variant="h6" 
+        sx={{ 
+          mb: 3, 
+          textAlign: 'center', 
+          color: '#FF69B4',
+          fontWeight: 600 
+        }}
+      >
+        🔐 Seguridad
+      </Typography>
+
+      {/* Contraseña - Campo completo */}
+      <TextField
+        fullWidth
+        label="Contraseña *"
+        type={showPassword ? 'text' : 'password'}
+        value={formData.password}
+        onChange={handleInputChange('password')}
+        error={!!errors.password}
+        helperText={errors.password}
+        margin="normal"
+        sx={fieldStyles}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <Lock color="action" />
+            </InputAdornment>
+          ),
+          endAdornment: (
+            <InputAdornment position="end">
+              <IconButton
+                onClick={() => setShowPassword(!showPassword)}
+                edge="end"
+              >
+                {showPassword ? <VisibilityOff /> : <Visibility />}
+              </IconButton>
+            </InputAdornment>
+          ),
+        }}
+      />
+
+      {/* Confirmar Contraseña - Campo completo */}
+      <TextField
+        fullWidth
+        label="Confirmar Contraseña *"
+        type={showConfirmPassword ? 'text' : 'password'}
+        value={formData.confirmPassword}
+        onChange={handleInputChange('confirmPassword')}
+        error={!!errors.confirmPassword}
+        helperText={errors.confirmPassword}
+        margin="normal"
+        sx={fieldStyles}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <Lock color="action" />
+            </InputAdornment>
+          ),
+          endAdornment: (
+            <InputAdornment position="end">
+              <IconButton
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                edge="end"
+              >
+                {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+              </IconButton>
+            </InputAdornment>
+          ),
+        }}
+      />
+    </Box>
+  );
+
+  const renderStep = () => {
+    switch (currentStep) {
+      case 0:
+        return renderPersonalDataStep();
+      case 1:
+        return renderLocationStep();
+      case 2:
+        return renderPasswordStep();
+      default:
+        return renderPersonalDataStep();
+    }
+  };
 
   return (
     <Box
@@ -254,7 +542,7 @@ const RegisterForm: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        position: 'fixed',
+        position: 'minHeight: 100vh',
         top: 0,
         left: 0,
         p: 2,
@@ -306,290 +594,30 @@ const RegisterForm: React.FC = () => {
             </Alert>
           )}
 
-          {/* Registration Form */}
-          <Box component="form" onSubmit={handleSubmit}>
-            {/* Nombre y Apellido - Responsive */}
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: { xs: 'column', sm: 'row' },
-              gap: 2, 
-              mb: 2 
-            }}>
-              <TextField
-                fullWidth
-                label="Nombre *"
-                value={formData.firstName}
-                onChange={handleInputChange('firstName')}
-                error={!!errors.firstName}
-                helperText={errors.firstName}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 1,
-                  },
-                  '& .MuiFormHelperText-root.Mui-error': {
-                    color: '#FF69B4',
-                    fontWeight: 500,
-                  }
-                }}
-              />
-              <TextField
-                fullWidth
-                label="Apellido *"
-                value={formData.lastName}
-                onChange={handleInputChange('lastName')}
-                error={!!errors.lastName}
-                helperText={errors.lastName}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 1,
-                  },
-                  '& .MuiFormHelperText-root.Mui-error': {
-                    color: '#FF69B4',
-                    fontWeight: 500,
-                  }
-                }}
-              />
-            </Box>
+          {/* Progress Bar */}
+          <ProgressBar currentStep={currentStep} totalSteps={TOTAL_STEPS} />
 
-            {/* Email */}
-            <TextField
-              fullWidth
-              label="Email *"
-              type="email"
-              value={formData.email}
-              onChange={handleInputChange('email')}
-              error={!!errors.email}
-              helperText={errors.email}
-              margin="normal"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 1,
-                },
-                '& .MuiFormHelperText-root.Mui-error': {
-                  color: '#FF69B4',
-                  fontWeight: 500,
-                }
-              }}
+          {/* Multi-Step Form */}
+          <Box component="form" onSubmit={isLast ? handleSubmit : undefined}>
+            {/* Render Current Step */}
+            {renderStep()}
+
+            {/* Step Navigator */}
+            <StepNavigator
+              currentStep={currentStep}
+              totalSteps={TOTAL_STEPS}
+              onNext={isLast ? handleSubmit : handleNext}
+              onPrev={handlePrev}
+              onStepClick={handleStepClick}
+              isFirst={isFirst}
+              isLast={isLast}
+              canGoNext={true}
+              nextLabel={isLast ? undefined : "Siguiente"}
             />
 
-            {/* Simple Phone Input */}
-            <Box sx={{ mt: 2 }}>
-              <SimplePhoneInput
-                value={formData.phone}
-                onChange={handlePhoneChange}
-                error={!!errors.phone}
-                helperText={errors.phone}
-                label="Teléfono"
-                placeholder="300 123 4567"
-                required={false}
-              />
-            </Box>
-
-            {/* Tipo de Documento y Número - Responsive */}
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: { xs: 'column', sm: 'row' },
-              gap: 2, 
-              mt: 2 
-            }}>
-              <FormControl 
-                fullWidth 
-                error={!!errors.documentType}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 1,
-                  },
-                  '& .MuiSelect-select': {
-                    borderRadius: 1,
-                  }
-                }}
-              >
-                <InputLabel>Tipo de Documento *</InputLabel>
-                <Select
-                  value={formData.documentType}
-                  onChange={handleInputChange('documentType')}
-                  input={<OutlinedInput label="Tipo de Documento *" />}
-                >
-                  {documentTypes.map((type) => (
-                    <MenuItem key={type.value} value={type.value}>
-                      {type.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {errors.documentType && (
-                  <Typography variant="caption" sx={{ mt: 0.5, ml: 2, color: '#FF69B4', fontWeight: 500 }}>
-                    {errors.documentType}
-                  </Typography>
-                )}
-              </FormControl>
-              <TextField
-                fullWidth
-                label="Número de Documento *"
-                value={formData.documentNumber}
-                onChange={handleInputChange('documentNumber')}
-                error={!!errors.documentNumber}
-                helperText={errors.documentNumber}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 1,
-                  },
-                  '& .MuiFormHelperText-root.Mui-error': {
-                    color: '#FF69B4',
-                    fontWeight: 500,
-                  }
-                }}
-              />
-            </Box>
-
-            {/* Username (opcional) */}
-            <TextField
-              fullWidth
-              label="Nombre de Usuario (opcional)"
-              value={formData.username}
-              onChange={handleInputChange('username')}
-              error={!!errors.username}
-              helperText={errors.username}
-              margin="normal"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 1,
-                },
-                '& .MuiFormHelperText-root.Mui-error': {
-                  color: '#FF69B4',
-                  fontWeight: 500,
-                }
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <AccountCircle color="action" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            {/* Location Selectors */}
-            <Box sx={{ mt: 3, mb: 2 }}>
-              <Typography 
-                variant="subtitle2" 
-                sx={{ 
-                  mb: 2, 
-                  color: 'text.primary',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1
-                }}
-              >
-                📍 Ubicación
-              </Typography>
-              <SimpleLocationSelectors
-                value={formData.location}
-                onChange={handleLocationChange}
-                error={errors.location}
-                required={false}
-              />
-            </Box>
-
-            {/* Contraseña */}
-            <TextField
-              fullWidth
-              label="Contraseña *"
-              type={showPassword ? 'text' : 'password'}
-              value={formData.password}
-              onChange={handleInputChange('password')}
-              error={!!errors.password}
-              helperText={errors.password}
-              margin="normal"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 1,
-                },
-                '& .MuiFormHelperText-root.Mui-error': {
-                  color: '#FF69B4',
-                  fontWeight: 500,
-                }
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Lock color="action" />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            {/* Confirmar Contraseña */}
-            <TextField
-              fullWidth
-              label="Confirmar Contraseña *"
-              type={showConfirmPassword ? 'text' : 'password'}
-              value={formData.confirmPassword}
-              onChange={handleInputChange('confirmPassword')}
-              error={!!errors.confirmPassword}
-              helperText={errors.confirmPassword}
-              margin="normal"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 1,
-                },
-                '& .MuiFormHelperText-root.Mui-error': {
-                  color: '#FF69B4',
-                  fontWeight: 500,
-                }
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Lock color="action" />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      edge="end"
-                    >
-                      {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            {/* Register Button - Same style as LoginForm */}
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              size="large"
-              disabled={loading}
-              sx={{
-                py: 1.8,
-                fontSize: '1rem',
-                fontWeight: 600,
-                mb: 3,
-                mt: 3,
-                borderRadius: 6,
-                textTransform: 'uppercase',
-              }}
-            >
-              {loading ? 'Registrando...' : 'REGISTRARSE'}
-            </Button>
-
-            {/* Login Link - Same style as LoginForm */}
-            <Box textAlign="center">
-              <Typography variant="body2" color="text.secondary" mb={2}>
+            {/* Login Link */}
+            <Box textAlign="center" sx={{ mt: 2 }}>
+              <Typography variant="body2" color="text.secondary">
                 ¿Ya tienes una cuenta?{' '}
                 <Button
                   variant="text"
@@ -601,6 +629,10 @@ const RegisterForm: React.FC = () => {
                     p: 0,
                     minWidth: 'auto',
                     fontWeight: 500,
+                    '&:hover': {
+                      backgroundColor: 'transparent',
+                      textDecoration: 'underline'
+                    }
                   }}
                 >
                   Inicia Sesión

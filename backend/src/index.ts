@@ -80,7 +80,7 @@ app.use(`${apiPrefix}/auth`, authRoutes);
 // API root endpoint
 app.use(apiPrefix, (req, res) => {
   res.status(200).json({
-    message: 'ITDimenzion API is running securely',
+    message: ' API is running securely',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
     endpoints: {

@@ -196,11 +196,7 @@ const LoginForm: React.FC = () => {
               error={!!errors.email}
               helperText={errors.email}
               margin="normal"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 1,
-                }
-              }}
+              
             />
 
             {/* Password Field */}
@@ -213,11 +209,7 @@ const LoginForm: React.FC = () => {
               error={!!errors.password}
               helperText={errors.password}
               margin="normal"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 1,
-                }
-              }}
+              
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">

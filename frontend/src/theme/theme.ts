@@ -200,7 +200,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiOutlinedInput-root': {
-            borderRadius:1,
+            borderRadius: 1,
             backgroundColor: 'rgba(255, 255, 255, 0.9)',
             transition: 'all 0.3s ease',
             '&:hover': {
@@ -208,9 +208,10 @@ const theme = createTheme({
             },
             '&.Mui-focused': {
               backgroundColor: 'rgba(255, 255, 255, 1)',
+              boxShadow: '0 0 0 3px rgba(255, 107, 107, 0.3)',
               '& .MuiOutlinedInput-notchedOutline': {
                 borderColor: '#FF6B6B',
-                borderWidth: '2px',
+                borderWidth: '1px',
               },
             },
           },
