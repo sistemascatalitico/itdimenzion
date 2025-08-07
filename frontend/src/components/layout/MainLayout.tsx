@@ -206,7 +206,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <Box
           sx={{
             flexGrow: 1,
-            p: 3,
+            p: 1, // Reducido de 3 a 1 para menos separación
             overflow: 'auto',
             backgroundColor: '#ffffff',
             minHeight: 'calc(100vh - 64px)', // Altura total menos AppBar

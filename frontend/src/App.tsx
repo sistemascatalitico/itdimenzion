@@ -8,6 +8,11 @@ import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './components/layout/Dashboard';
+import CompanyManagement from './components/companies/CompanyManagement';
+import HeadquartersManagement from './components/headquarters/HeadquartersManagement';
+import ProcessManagement from './components/processes/ProcessManagement';
+import JobTitleManagement from './components/jobtitles/JobTitleManagement';
+import UserManagement from './components/users/UserManagement';
 import ProtectedRoute from './components/common/ProtectedRoute';
 
 /**
@@ -46,6 +51,61 @@ const AppContent: React.FC = () => {
             <ProtectedRoute>
               <MainLayout>
                 <Dashboard />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/companies"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <CompanyManagement />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/headquarters"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <HeadquartersManagement />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/processes"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <ProcessManagement />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/job-titles"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <JobTitleManagement />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <UserManagement />
               </MainLayout>
             </ProtectedRoute>
           }

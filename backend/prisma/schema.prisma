@@ -45,22 +45,27 @@ enum AssetCondition {
 model Company {
   id          Int           @id @default(autoincrement())
   name        String        @unique
+  nit         String        @unique // NIT as primary business identifier
   description String?       @db.Text
   email       String?
   phone       String?
   address     String?       @db.Text
-  city        String?
-  state       String?
-  country     String?
+  cityId      Int?
+  stateId     Int?
+  countryId   Int?
   website     String?
   logo        String?
   status      Status        @default(ACTIVE)
   code        String        @unique
-  nit         String        @unique
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   createdBy   String?
   updatedBy   String?
+  
+  // Geographic relationships
+  city         City?         @relation(fields: [cityId], references: [id])
+  state        State?        @relation(fields: [stateId], references: [id])
+  country      Country?      @relation(fields: [countryId], references: [id])
   
   headquarters      Headquarters[]
   users            User[]
@@ -73,12 +78,12 @@ model Company {
 
 model Headquarters {
   id          Int       @id @default(autoincrement())
-  name        String    @unique
+  name        String
   description String?   @db.Text
   address     String?   @db.Text
-  city        String?
-  state       String?
-  country     String?
+  cityId      Int?
+  stateId     Int?
+  countryId   Int?
   phone       String?
   email       String?
   status      Status    @default(ACTIVE)
@@ -89,18 +94,24 @@ model Headquarters {
   createdBy   String?
   updatedBy   String?
   
+  // Geographic relationships
+  city         City?     @relation(fields: [cityId], references: [id])
+  state        State?    @relation(fields: [stateId], references: [id])
+  country      Country?  @relation(fields: [countryId], references: [id])
+  
   company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   users       User[]
   assets      Asset[]
   
+  @@unique([name, companyId]) // Same headquarter name can exist in different companies
   @@map("headquarters")
 }
 
 model User {
-  id                    String       @id @default(cuid())
+  documentNumber        String       @id // Document number as primary key (cedula)
   documentType          DocumentType
-  username              String?      @unique
-  email                 String       @unique
+  username              String       @unique // Unique username for login
+  email                 String       @unique // Unique email for login
   password              String
   firstName             String
   lastName              String
@@ -112,11 +123,10 @@ model User {
   lockedUntil           DateTime?
   resetToken            String?
   resetTokenExpiry      DateTime?
-  companyId             Int?
-  headquartersId        Int?
-  processId             Int?
-  jobTitleId            Int?
-  documentNumber        String       @unique
+  companyId             Int?         // User belongs to one company only
+  headquartersId        Int?         // User assigned to headquarters
+  processId             Int?         // Process is global to company
+  jobTitleId            Int?         // JobTitle belongs to user
   emailVerified         Boolean      @default(false)
   emailVerificationToken String?     @unique
   passwordResetToken     String?     @unique
@@ -126,14 +136,14 @@ model User {
   profilePicture         String?
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
-  createdBy             String?
-  updatedBy             String?
+  createdBy             String?      // Document number of creator
+  updatedBy             String?      // Document number of updater
   
   company               Company?     @relation(fields: [companyId], references: [id])
   headquarters          Headquarters? @relation(fields: [headquartersId], references: [id])
   process               Process?     @relation(fields: [processId], references: [id])
   jobTitle              JobTitle?    @relation(fields: [jobTitleId], references: [id])
-  creator               User?        @relation("UserCreatedBy", fields: [createdBy], references: [id])
+  creator               User?        @relation("UserCreatedBy", fields: [createdBy], references: [documentNumber])
   createdUsers          User[]       @relation("UserCreatedBy")
   refreshTokens         RefreshToken[]
   loginLogs             LoginLog[]
@@ -143,7 +153,7 @@ model User {
   updatedAssets         Asset[]      @relation("AssetUpdatedBy")
   
   @@index([email])
-  @@index([documentNumber])
+  @@index([username])
   @@index([status])
   @@map("users")
 }
@@ -151,25 +161,25 @@ model User {
 model RefreshToken {
   id        String   @id @default(cuid())
   token     String   @unique
-  userId    String
+  userId    String   // References User.documentNumber
   expiresAt DateTime
   createdAt DateTime @default(now())
   
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [documentNumber], onDelete: Cascade)
   
   @@map("refresh_tokens")
 }
 
 model LoginLog {
   id          String   @id @default(cuid())
-  userId      String
+  userId      String   // References User.documentNumber
   ipAddress   String
   userAgent   String?
   success     Boolean
   failureReason String?
   timestamp   DateTime @default(now())
   
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [documentNumber], onDelete: Cascade)
   
   @@index([userId])
   @@index([timestamp])
@@ -232,12 +242,12 @@ model UserGroup {
 
 model UserGroupMember {
   id          Int       @id @default(autoincrement())
-  userId      String
+  userId      String    // References User.documentNumber
   userGroupId Int
   createdAt   DateTime  @default(now())
-  createdBy   String?
+  createdBy   String?   // References User.documentNumber
   
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [documentNumber], onDelete: Cascade)
   userGroup   UserGroup @relation(fields: [userGroupId], references: [id], onDelete: Cascade)
   
   @@unique([userId, userGroupId])
@@ -330,20 +340,20 @@ model Asset {
   groupId             Int
   companyId           Int
   headquartersId      Int
-  assignedUserId      String?
+  assignedUserId      String?       // References User.documentNumber
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
-  createdById         String
-  updatedById         String?
+  createdById         String        // References User.documentNumber
+  updatedById         String?       // References User.documentNumber
   
   category            AssetCategory @relation(fields: [categoryId], references: [id])
   model               AssetModel    @relation(fields: [modelId], references: [id])
   group               AssetGroup    @relation(fields: [groupId], references: [id])
   company             Company       @relation(fields: [companyId], references: [id])
   headquarters        Headquarters  @relation(fields: [headquartersId], references: [id])
-  assignedUser        User?         @relation("AssetAssignedTo", fields: [assignedUserId], references: [id])
-  createdBy           User          @relation("AssetCreatedBy", fields: [createdById], references: [id])
-  updatedBy           User?         @relation("AssetUpdatedBy", fields: [updatedById], references: [id])
+  assignedUser        User?         @relation("AssetAssignedTo", fields: [assignedUserId], references: [documentNumber])
+  createdBy           User          @relation("AssetCreatedBy", fields: [createdById], references: [documentNumber])
+  updatedBy           User?         @relation("AssetUpdatedBy", fields: [updatedById], references: [documentNumber])
   
   @@map("assets")
 }
@@ -375,6 +385,56 @@ model CompanyJobTitle {
   
   @@unique([companyId, jobTitleId])
   @@map("company_job_titles")
+}
+
+// Geography Models for Colombia and USA
+model Country {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  code        String    @unique // CO, US
+  status      Status    @default(ACTIVE)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  states      State[]
+  companies   Company[]
+  headquarters Headquarters[]
+  
+  @@map("countries")
+}
+
+model State {
+  id          Int       @id @default(autoincrement())
+  name        String
+  code        String    // ANT, CAL, NY, CA, etc.
+  countryId   Int
+  status      Status    @default(ACTIVE)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  country     Country   @relation(fields: [countryId], references: [id])
+  cities      City[]
+  companies   Company[]
+  headquarters Headquarters[]
+  
+  @@unique([name, countryId])
+  @@map("states")
+}
+
+model City {
+  id          Int       @id @default(autoincrement())
+  name        String
+  stateId     Int
+  status      Status    @default(ACTIVE)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  state       State     @relation(fields: [stateId], references: [id])
+  companies   Company[]
+  headquarters Headquarters[]
+  
+  @@unique([name, stateId])
+  @@map("cities")
 }
 
 model AuditLog {
