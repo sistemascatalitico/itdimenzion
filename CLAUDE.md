@@ -384,3 +384,41 @@ Este archivo no contiene el log completo. Las acciones se registran en `CLAUDE.l
 - **Frontend**: Servidor corriendo en puerto 3007
 - **Tema consistente**: Rosa (#FF69B4) aplicado en toda la aplicación
 - **Validación**: Sistema robusto de validación por pasos implementado
+
+### Corrección LocationSelectors Layout - 2025-08-07T16:15:00Z
+
+**SOLUCIONADO**: Layout horizontal persistente en LocationSelectors.tsx
+
+#### Problema Identificado:
+- **Issue**: LocationSelectors seguía mostrando campos lado a lado en pantallas medianas/grandes
+- **Causa**: `md={4}` en Grid items mantenía layout horizontal
+- **Síntoma**: Usuario intentó usar `position: 'absolute'` pero rompía el flujo del layout
+
+#### Solución Implementada:
+- ✅ **Grid Layout Fixed**: Cambiado `xs={12} md={4}` a solo `xs={12}` en los 3 selectores
+- ✅ **Position Absolute Removed**: Eliminado position problemático que sacaba elementos del flujo
+- ✅ **Pink Theme Applied**: Tema rosa (#FF69B4) aplicado consistentemente
+- ✅ **CSS Global Styling**: Agregados estilos globales para react-country-state-city
+- ✅ **Layout Vertical Garantizado**: Ahora siempre apilado verticalmente desde el inicio
+
+#### Cambios Técnicos:
+```typescript
+// ANTES:
+<Grid item xs={12} md={4}> // Horizontal en pantallas medianas
+  <Box sx={{ position: 'absolute' }}> // Rompía el flujo
+
+// DESPUÉS:  
+<Grid item xs={12}> // Siempre vertical
+  <Box sx={{ position: 'relative' }}> // Flujo natural
+```
+
+#### Archivos Modificados:
+- `frontend/src/components/common/LocationSelectors.tsx` - Layout vertical + tema rosa
+- CSS global agregado para componentes de react-country-state-city
+- Estilos hover/focus con tema rosa unificado
+
+#### Resultado Final:
+- **Layout**: País → Departamento → Ciudad (siempre vertical)
+- **Tema**: Rosa consistente (#FF69B4) en todos los selectores  
+- **UX**: Transiciones suaves y estados visuales mejorados
+- **Responsive**: Funciona correctamente en todas las resoluciones

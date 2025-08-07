@@ -277,8 +277,8 @@ const SecureLocationSelectors: React.FC<SecureLocationSelectorsProps> = ({
   };
 
   return (
-    <Box>
-      <Grid container spacing={2}>
+    <Box sx={{ width: '100%' }}>
+      <Grid container direction="column" spacing={2}>
         {/* Country Selector */}
         <Grid item xs={12}>
           <FormControl 
@@ -286,8 +286,11 @@ const SecureLocationSelectors: React.FC<SecureLocationSelectorsProps> = ({
             required={required} 
             error={!!error.country}
             sx={{
+              width: '100%',
+              minWidth: '280px',
               '& .MuiOutlinedInput-root': {
                 borderRadius: 1,
+                minHeight: '56px',
                 '&:hover fieldset': {
                   borderColor: '#FF69B4',
                 },
@@ -346,8 +349,11 @@ const SecureLocationSelectors: React.FC<SecureLocationSelectorsProps> = ({
             required={required} 
             error={!!error.state}
             sx={{
+              width: '100%',
+              minWidth: '280px',
               '& .MuiOutlinedInput-root': {
                 borderRadius: 1,
+                minHeight: '56px',
                 '&:hover fieldset': {
                   borderColor: '#FF69B4',
                 },
@@ -402,8 +408,11 @@ const SecureLocationSelectors: React.FC<SecureLocationSelectorsProps> = ({
             required={required} 
             error={!!error.city}
             sx={{
+              width: '100%',
+              minWidth: '280px',
               '& .MuiOutlinedInput-root': {
                 borderRadius: 1,
+                minHeight: '56px',
                 '&:hover fieldset': {
                   borderColor: '#FF69B4',
                 },
@@ -453,6 +462,44 @@ const SecureLocationSelectors: React.FC<SecureLocationSelectorsProps> = ({
           {value.country === 'CO' ? `✅ Colombia: ${getCitiesByState(value.state).length} ciudades disponibles` : 'Datos seguros'}
         </Typography>
       </Box>
+      
+      {/* CSS adicional para garantizar layout vertical */}
+      <style jsx global>{`
+        /* Forzar layout vertical en todos los breakpoints */
+        .MuiGrid-container .MuiGrid-item {
+          max-width: 100% !important;
+          flex-basis: 100% !important;
+          width: 100% !important;
+        }
+        
+        /* Asegurar que FormControl ocupe todo el ancho */
+        .MuiGrid-item .MuiFormControl-root {
+          width: 100% !important;
+          min-width: 280px !important;
+        }
+        
+        /* Mejorar la altura mínima de los selects */
+        .MuiFormControl-root .MuiOutlinedInput-root {
+          min-height: 56px !important;
+        }
+        
+        /* Asegurar que el Select interno también sea full width */
+        .MuiSelect-select {
+          width: 100% !important;
+          box-sizing: border-box !important;
+        }
+        
+        /* Responsive: Mantener vertical en móviles */
+        @media (max-width: 600px) {
+          .MuiGrid-item .MuiFormControl-root {
+            min-width: 250px !important;
+          }
+          
+          .MuiFormControl-root .MuiOutlinedInput-root {
+            min-height: 48px !important;
+          }
+        }
+      `}</style>
     </Box>
   );
 };

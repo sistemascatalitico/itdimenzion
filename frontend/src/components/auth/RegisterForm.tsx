@@ -413,7 +413,7 @@ const RegisterForm: React.FC = () => {
   );
 
   const renderLocationStep = () => (
-    <Box>
+    <Box sx={{ width: '100%', maxWidth: '420px', mx: 'auto' }}>
       <Typography 
         variant="h6" 
         sx={{ 
@@ -426,13 +426,15 @@ const RegisterForm: React.FC = () => {
         📍 Ubicación
       </Typography>
       
-      <SecureLocationSelectors
-        value={formData.location}
-        onChange={handleLocationChange}
-        error={errors.location}
-        required={false}
-        enableDynamicLoading={false}
-      />
+      <Box sx={{ width: '100%' }}>
+        <SecureLocationSelectors
+          value={formData.location}
+          onChange={handleLocationChange}
+          error={errors.location}
+          required={false}
+          enableDynamicLoading={false}
+        />
+      </Box>
 
       <Typography 
         variant="body2" 
