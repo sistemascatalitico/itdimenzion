@@ -27,8 +27,8 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import PhoneInput from '../common/PhoneInput';
-import LocationSelectors from '../common/LocationSelectors';
+import SimplePhoneInput from '../common/SimplePhoneInput';
+import SimpleLocationSelectors from '../common/SimpleLocationSelectors';
 
 // Document types for registration
 const documentTypes = [
@@ -41,20 +41,9 @@ const documentTypes = [
 ];
 
 interface LocationData {
-  country: {
-    id: number;
-    name: string;
-    iso2: string;
-  } | null;
-  state: {
-    id: number;
-    name: string;
-    state_code: string;
-  } | null;
-  city: {
-    id: number;
-    name: string;
-  } | null;
+  country: string;
+  state: string;
+  city: string;
 }
 
 interface RegisterData {
@@ -105,9 +94,9 @@ const RegisterForm: React.FC = () => {
     password: '',
     confirmPassword: '',
     location: {
-      country: null,
-      state: null,
-      city: null
+      country: '',
+      state: '',
+      city: ''
     }
   });
 
@@ -383,9 +372,9 @@ const RegisterForm: React.FC = () => {
               }}
             />
 
-            {/* Modern Phone Input with Flags */}
+            {/* Simple Phone Input */}
             <Box sx={{ mt: 2 }}>
-              <PhoneInput
+              <SimplePhoneInput
                 value={formData.phone}
                 onChange={handlePhoneChange}
                 error={!!errors.phone}
@@ -494,7 +483,7 @@ const RegisterForm: React.FC = () => {
               >
                 📍 Ubicación
               </Typography>
-              <LocationSelectors
+              <SimpleLocationSelectors
                 value={formData.location}
                 onChange={handleLocationChange}
                 error={errors.location}

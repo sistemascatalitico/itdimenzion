@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FormControl, InputLabel, Select, MenuItem, Box, Typography, Grid } from '@mui/material';
 import { CountrySelect, StateSelect, CitySelect } from 'react-country-state-city';
 import ReactCountryFlag from 'react-country-flag';
-import 'react-country-state-city/dist/react-country-state-city.css';
+// import 'react-country-state-city/dist/react-country-state-city.css'; // Comentado temporalmente
 import { LocationOn, Public, Place } from '@mui/icons-material';
 
 interface LocationData {
@@ -237,52 +237,7 @@ const LocationSelectors: React.FC<LocationSelectorsProps> = ({
         </Grid>
       </Grid>
 
-      {/* Custom styling */}
-      <style jsx global>{`
-        .country-select-container,
-        .state-select-container,
-        .city-select-container {
-          position: relative;
-        }
-        
-        .country-select-input,
-        .state-select-input,
-        .city-select-input {
-          width: 100% !important;
-          padding: 16.5px 14px !important;
-          border: 1px solid rgba(0, 0, 0, 0.23) !important;
-          border-radius: 4px !important;
-          font-family: "Roboto", "Helvetica", "Arial", sans-serif !important;
-          font-size: 16px !important;
-          background-color: transparent !important;
-          transition: border-color 0.15s ease-in-out !important;
-        }
-        
-        .country-select-input:hover,
-        .state-select-input:hover,
-        .city-select-input:hover {
-          border-color: rgba(0, 0, 0, 0.87) !important;
-        }
-        
-        .country-select-input:focus,
-        .state-select-input:focus,
-        .city-select-input:focus {
-          outline: none !important;
-          border-color: #FF6B6B !important;
-          border-width: 2px !important;
-        }
-        
-        .country-select-input {
-          padding-left: 45px !important;
-        }
-        
-        /* Error states */
-        .country-select-container.error .country-select-input,
-        .state-select-container.error .state-select-input,
-        .city-select-container.error .city-select-input {
-          border-color: #d32f2f !important;
-        }
-      `}</style>
+{/* Styles moved to sx prop to avoid jsx conflicts */}
     </Box>
   );
 };

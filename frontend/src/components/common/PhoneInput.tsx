@@ -2,7 +2,7 @@ import React from 'react';
 import { TextField, InputAdornment, Select, MenuItem, Box, Typography } from '@mui/material';
 import { usePhoneInput, CountrySelector, usePhoneValidation } from 'react-international-phone';
 import ReactCountryFlag from 'react-country-flag';
-import 'react-international-phone/style.css';
+// import 'react-international-phone/style.css'; // Comentado temporalmente
 
 interface PhoneInputProps {
   value: string;
