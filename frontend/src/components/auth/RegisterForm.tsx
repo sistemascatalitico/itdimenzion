@@ -27,22 +27,10 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import PhoneInput from '../common/PhoneInput';
+import LocationSelectors from '../common/LocationSelectors';
 
-// Country data with flags and phone codes
-const countries = [
-  { code: 'CO', name: 'Colombia', phone: '+57', flag: '🇨🇴' },
-  { code: 'US', name: 'Estados Unidos', phone: '+1', flag: '🇺🇸' },
-  { code: 'MX', name: 'México', phone: '+52', flag: '🇲🇽' },
-  { code: 'AR', name: 'Argentina', phone: '+54', flag: '🇦🇷' },
-  { code: 'BR', name: 'Brasil', phone: '+55', flag: '🇧🇷' },
-  { code: 'CL', name: 'Chile', phone: '+56', flag: '🇨🇱' },
-  { code: 'PE', name: 'Perú', phone: '+51', flag: '🇵🇪' },
-  { code: 'EC', name: 'Ecuador', phone: '+593', flag: '🇪🇨' },
-  { code: 'VE', name: 'Venezuela', phone: '+58', flag: '🇻🇪' },
-  { code: 'ES', name: 'España', phone: '+34', flag: '🇪🇸' },
-];
-
-// Document types
+// Document types for registration
 const documentTypes = [
   { value: 'CEDULA', label: 'Cédula de Ciudadanía' },
   { value: 'TARJETA_IDENTIDAD', label: 'Tarjeta de Identidad' },
@@ -51,6 +39,23 @@ const documentTypes = [
   { value: 'NIT', label: 'NIT' },
   { value: 'RUT', label: 'RUT' },
 ];
+
+interface LocationData {
+  country: {
+    id: number;
+    name: string;
+    iso2: string;
+  } | null;
+  state: {
+    id: number;
+    name: string;
+    state_code: string;
+  } | null;
+  city: {
+    id: number;
+    name: string;
+  } | null;
+}
 
 interface RegisterData {
   firstName: string;
@@ -63,6 +68,7 @@ interface RegisterData {
   username: string;
   password: string;
   confirmPassword: string;
+  location: LocationData;
 }
 
 interface RegisterErrors {
@@ -75,6 +81,11 @@ interface RegisterErrors {
   username?: string;
   password?: string;
   confirmPassword?: string;
+  location?: {
+    country?: string;
+    state?: string;
+    city?: string;
+  };
   general?: string;
 }
 
@@ -93,6 +104,11 @@ const RegisterForm: React.FC = () => {
     username: '',
     password: '',
     confirmPassword: '',
+    location: {
+      country: null,
+      state: null,
+      city: null
+    }
   });
 
   const [errors, setErrors] = useState<RegisterErrors>({});
@@ -168,29 +184,28 @@ const RegisterForm: React.FC = () => {
     }
   };
 
-  // Detect country by phone number
-  const detectCountryByPhone = (phoneNumber: string) => {
-    const cleanPhone = phoneNumber.replace(/\D/g, '');
-    
-    for (const country of countries) {
-      const countryCode = country.phone.replace('+', '');
-      if (cleanPhone.startsWith(countryCode)) {
-        return country.code;
-      }
-    }
-    return 'CO'; // default
-  };
-
-  const handlePhoneChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const phoneValue = event.target.value;
+  // Handle phone input changes
+  const handlePhoneChange = (phone: string, country: string) => {
     setFormData(prev => ({ 
       ...prev, 
-      phone: phoneValue,
-      countryCode: detectCountryByPhone(phoneValue)
+      phone: phone,
+      countryCode: country.toUpperCase()
     }));
     
     if (errors.phone) {
       setErrors(prev => ({ ...prev, phone: undefined }));
+    }
+    if (errors.general) {
+      setErrors(prev => ({ ...prev, general: undefined }));
+    }
+  };
+
+  // Handle location changes
+  const handleLocationChange = (location: LocationData) => {
+    setFormData(prev => ({ ...prev, location }));
+    
+    if (errors.location) {
+      setErrors(prev => ({ ...prev, location: undefined }));
     }
     if (errors.general) {
       setErrors(prev => ({ ...prev, general: undefined }));
@@ -208,18 +223,8 @@ const RegisterForm: React.FC = () => {
     setErrors({});
 
     try {
-      const selectedCountry = countries.find(c => c.code === formData.countryCode);
-      // Simplificar el procesamiento del teléfono
-      let fullPhoneNumber = undefined;
-      if (formData.phone) {
-        // Si ya tiene código de país, usarlo tal como está
-        if (formData.phone.startsWith('+')) {
-          fullPhoneNumber = formData.phone;
-        } else {
-          // Si no, agregar el código del país seleccionado
-          fullPhoneNumber = `${selectedCountry?.phone || '+57'}${formData.phone}`;
-        }
-      }
+      // El PhoneInput ya proporciona el número completo con código de país
+      const fullPhoneNumber = formData.phone || undefined;
       
       
       const result = await register({
@@ -250,7 +255,6 @@ const RegisterForm: React.FC = () => {
     navigate('/login');
   };
 
-  const selectedCountry = countries.find(c => c.code === formData.countryCode);
 
   return (
     <Box
@@ -379,59 +383,18 @@ const RegisterForm: React.FC = () => {
               }}
             />
 
-            {/* Phone with Smart Country Detection */}
-            <TextField
-              fullWidth
-              label="Teléfono"
-              value={formData.phone}
-              onChange={handlePhoneChange}
-              error={!!errors.phone}
-              helperText={errors.phone}
-              margin="normal"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 1,
-                },
-                '& .MuiFormHelperText-root.Mui-error': {
-                  color: '#FF69B4',
-                  fontWeight: 500,
-                }
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Box sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      mr: 1.5, 
-                      gap: 1,
-                      backgroundColor: 'rgba(0,0,0,0.03)',
-                      px: 1,
-                      py: 0.5,
-                      borderRadius: 1,
-                      border: '1px solid rgba(0,0,0,0.1)'
-                    }}>
-                      <span style={{ 
-                        fontSize: '1.4em',
-                        lineHeight: 1,
-                        display: 'inline-block'
-                      }}>
-                        {selectedCountry?.flag || '🇨🇴'}
-                      </span>
-                      <span style={{ 
-                        fontSize: '0.875rem', 
-                        color: '#666',
-                        fontWeight: 600,
-                        minWidth: '35px'
-                      }}>
-                        {selectedCountry?.phone || '+57'}
-                      </span>
-                    </Box>
-                  </InputAdornment>
-                ),
-              }}
-              placeholder="Ingresa tu número completo"
-            />
+            {/* Modern Phone Input with Flags */}
+            <Box sx={{ mt: 2 }}>
+              <PhoneInput
+                value={formData.phone}
+                onChange={handlePhoneChange}
+                error={!!errors.phone}
+                helperText={errors.phone}
+                label="Teléfono"
+                placeholder="300 123 4567"
+                required={false}
+              />
+            </Box>
 
             {/* Tipo de Documento y Número - Responsive */}
             <Box sx={{ 
@@ -515,6 +478,29 @@ const RegisterForm: React.FC = () => {
                 ),
               }}
             />
+
+            {/* Location Selectors */}
+            <Box sx={{ mt: 3, mb: 2 }}>
+              <Typography 
+                variant="subtitle2" 
+                sx={{ 
+                  mb: 2, 
+                  color: 'text.primary',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1
+                }}
+              >
+                📍 Ubicación
+              </Typography>
+              <LocationSelectors
+                value={formData.location}
+                onChange={handleLocationChange}
+                error={errors.location}
+                required={false}
+              />
+            </Box>
 
             {/* Contraseña */}
             <TextField

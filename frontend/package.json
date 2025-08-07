@@ -22,8 +22,11 @@
     "formik": "^2.4.5",
     "js-cookie": "^3.0.5",
     "react": "^19.1.0",
+    "react-country-flag": "^3.1.0",
+    "react-country-state-city": "^1.1.12",
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.62.0",
+    "react-international-phone": "^4.6.0",
     "react-router-dom": "^7.7.1",
     "yup": "^1.7.0"
   },
