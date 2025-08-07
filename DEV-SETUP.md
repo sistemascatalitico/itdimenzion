@@ -12,13 +12,16 @@ Este documento te guiará para configurar el proyecto ITDimenzion en tu entorno 
 
 ### Herramientas de Desarrollo:
 ```bash
-# Instalar pnpm (recomendado) o usar npm
+# Instalar pnpm (OBLIGATORIO - el proyecto usa pnpm workspaces)
 npm install -g pnpm
 
 # Verificar versiones
 node --version    # >= v18.0.0
 mysql --version   # >= 8.0.0
+pnpm --version    # >= 8.0.0
 ```
+
+**⚠️ IMPORTANTE**: Este proyecto **requiere pnpm**. No usar npm directamente para instalación de dependencias.
 
 ## 🗄️ Configuración de Base de Datos MySQL
 
@@ -169,6 +172,24 @@ pnpm start            # Servidor de desarrollo
 pnpm build            # Build para producción
 pnpm test             # Ejecutar tests
 ```
+
+### Backup Scripts:
+```bash
+# Navegar a directorio de scripts
+cd scripts
+
+# Backup completo del proyecto
+backup-project.bat     # Crea backup timestamped del código fuente
+
+# Backup de base de datos
+backup-database.bat    # Crea backup timestamped de MySQL
+
+# Backup completo del sistema (recomendado)
+backup-project.bat && backup-database.bat
+```
+
+**📁 Backups Location**: `Backups/` (ignorado por git)  
+**📚 Documentación completa**: Ver `scripts/BACKUP_GUIDE.md`
 
 ## 🔧 Solución de Problemas
 

@@ -83,6 +83,9 @@ prisma/migrations/*/migration.sql
 *.backup
 *.bak
 
+# Project backups - Contains complete project snapshots
+Backups/
+
 # Claude Code specific
 .claude/
 CLAUDE.md

@@ -184,6 +184,69 @@ The project uses Jest for testing:
 
 See `DEV-SETUP.md` for detailed setup instructions.
 
+## Backup and Recovery
+
+### Quick Backup Commands
+```bash
+# Complete project backup
+cd scripts
+backup-project.bat
+
+# Database backup only
+cd scripts
+backup-database.bat
+
+# Full system backup (recommended)
+cd scripts
+backup-project.bat && backup-database.bat
+```
+
+### Backup System Features
+- ✅ **Automated timestamping**: Backups named with date/time
+- ✅ **Complete project backup**: Source code, configs, documentation
+- ✅ **MySQL database backup**: Schema, data, procedures, triggers
+- ✅ **Selective exclusion**: Skips node_modules, .git, build artifacts
+- ✅ **Restore scripts**: Automated restoration with guided setup
+- ✅ **Backup verification**: Connection tests and file integrity checks
+- ✅ **Gitignore integration**: Backups folder automatically ignored
+
+### Backup File Structure
+```
+Backups/
+├── ITDimenzion_Backup_YYYY-MM-DD_HH-MM/     # Project backup
+│   ├── project/                              # Complete project files
+│   ├── BACKUP_INFO.txt                       # Backup information
+│   └── RESTORE.bat                           # Restore script
+├── ITDimenzion_Database_YYYY-MM-DD_HH-MM.sql  # Database backup
+└── restore-database_YYYY-MM-DD_HH-MM.bat      # DB restore script
+```
+
+### Prerequisites for Database Backup
+- MySQL client installed and accessible from command line
+- Database connection credentials configured
+
+**Install MySQL Client:**
+```bash
+# Option 1: Download from https://dev.mysql.com/downloads/mysql/
+# Option 2: Using Chocolatey
+choco install mysql
+# Option 3: Using Winget  
+winget install Oracle.MySQL
+```
+
+### Restoration Procedures
+**Project Restore:**
+1. Navigate to backup folder: `Backups/ITDimenzion_Backup_YYYY-MM-DD_HH-MM/`
+2. Run: `RESTORE.bat`
+3. Follow on-screen instructions
+
+**Database Restore:**
+1. Navigate to `Backups/` directory
+2. Run: `restore-database_YYYY-MM-DD_HH-MM.bat`
+3. Enter MySQL credentials when prompted
+
+**See `scripts/BACKUP_GUIDE.md` for complete documentation.**
+
 ## Claude Activity Summary
 
 Este archivo no contiene el log completo. Las acciones se registran en `CLAUDE.log` con timestamp UTC.
