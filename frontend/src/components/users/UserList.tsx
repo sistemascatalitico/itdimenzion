@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -30,9 +30,10 @@ import {
   FormControl,
   InputLabel,
   Select,
-  Grid,
-  Divider
+  Divider,
+  CircularProgress
 } from '@mui/material';
+import Grid from '@mui/material/Unstable_Grid2';
 import {
   Add as AddIcon,
   Search as SearchIcon,
@@ -49,12 +50,17 @@ import {
   Email as EmailIcon,
   Work as WorkIcon,
   FilterList as FilterIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  Warning as WarningIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
+import { useAuth } from '../../contexts/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
+import UserForm from './UserForm';
+import api from '../../config/api';
 
 // Types
 interface User {
-  id: number;
   documentNumber: string;
   documentType: 'CEDULA' | 'TARJETA_IDENTIDAD' | 'CEDULA_EXTRANJERIA';
   firstName: string;
@@ -93,24 +99,39 @@ interface Company {
   nit: string;
 }
 
-interface UserListProps {
-  onCreateNew: () => void;
-  onEdit: (user: User) => void;
-  onView: (user: User) => void;
-  onDelete: (user: User) => void;
-  onToggleStatus: (user: User) => void;
+interface UserFormData {
+  documentNumber: string;
+  documentType: 'CEDULA' | 'TARJETA_IDENTIDAD' | 'CEDULA_EXTRANJERIA';
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  username: string;
+  password?: string;
+  confirmPassword?: string;
+  role: 'ADMIN' | 'SUPERVISOR' | 'USER';
+  companyId: number;
+  headquartersId: number;
+  jobTitleId: number;
 }
 
-const UserList: React.FC<UserListProps> = ({
-  onCreateNew,
-  onEdit,
-  onView,
-  onDelete,
-  onToggleStatus
-}) => {
+const UserList: React.FC = () => {
+  const { user: currentUser } = useAuth();
+  const {
+    hasPermission,
+    canManageUser,
+    canEditUser,
+    canDeleteUser,
+    getManagedRoles,
+    userPermissions,
+    loading: permissionsLoading,
+    error: permissionsError
+  } = usePermissions();
+
   const [users, setUsers] = useState<User[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCompany, setSelectedCompany] = useState<number | ''>('');
   const [selectedRole, setSelectedRole] = useState<string | ''>('');
@@ -119,6 +140,10 @@ const UserList: React.FC<UserListProps> = ({
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  
+  // Estados para controlar el modal
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create');
 
   useEffect(() => {
     loadData();
@@ -135,192 +160,37 @@ const UserList: React.FC<UserListProps> = ({
     }
   };
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
-      // TODO: Replace with actual API call
-      const mockUsers: User[] = [
-        {
-          id: 1,
-          documentNumber: '1234567890',
-          documentType: 'CEDULA',
-          firstName: 'Juan Carlos',
-          lastName: 'García López',
-          email: 'juan.garcia@itdimenzion.com',
-          phone: '+57 300 123 4567',
-          username: 'juan.garcia',
-          role: 'ADMIN',
-          status: 'ACTIVE',
-          company: {
-            id: 1,
-            name: 'ITDimenzion SAS',
-            nit: '900123456-1'
-          },
-          headquarters: {
-            id: 1,
-            name: 'Sede Principal Bogotá',
-            code: 'BOG-001'
-          },
-          jobTitle: {
-            id: 2,
-            name: 'Gerente de Recursos Humanos',
-            code: 'RH-GER01',
-            process: {
-              name: 'Recursos Humanos'
-            }
-          },
-          createdAt: '2024-01-15T10:30:00.000Z',
-          updatedAt: '2024-08-06T15:45:00.000Z',
-          lastLogin: '2024-08-06T14:30:00.000Z'
-        },
-        {
-          id: 2,
-          documentNumber: '9876543210',
-          documentType: 'CEDULA',
-          firstName: 'María Fernanda',
-          lastName: 'Rodríguez Silva',
-          email: 'maria.rodriguez@itdimenzion.com',
-          phone: '+57 301 987 6543',
-          username: 'maria.rodriguez',
-          role: 'USER',
-          status: 'ACTIVE',
-          company: {
-            id: 1,
-            name: 'ITDimenzion SAS',
-            nit: '900123456-1'
-          },
-          headquarters: {
-            id: 1,
-            name: 'Sede Principal Bogotá',
-            code: 'BOG-001'
-          },
-          jobTitle: {
-            id: 1,
-            name: 'Desarrollador Senior',
-            code: 'TEC-DEV01',
-            process: {
-              name: 'Tecnología'
-            }
-          },
-          createdAt: '2024-02-10T09:15:00.000Z',
-          updatedAt: '2024-08-05T11:20:00.000Z',
-          lastLogin: '2024-08-05T16:45:00.000Z'
-        },
-        {
-          id: 3,
-          documentNumber: '5555666677',
-          documentType: 'CEDULA',
-          firstName: 'Carlos Eduardo',
-          lastName: 'Martínez Torres',
-          email: 'carlos.martinez@techcorp.com',
-          phone: '+57 302 555 7777',
-          username: 'carlos.martinez',
-          role: 'SUPERVISOR',
-          status: 'ACTIVE',
-          company: {
-            id: 2,
-            name: 'TechCorp Colombia',
-            nit: '800987654-2'
-          },
-          headquarters: {
-            id: 3,
-            name: 'Oficina Central',
-            code: 'CEN-001'
-          },
-          jobTitle: {
-            id: 3,
-            name: 'Analista Financiero',
-            code: 'FIN-ANA01',
-            process: {
-              name: 'Finanzas'
-            }
-          },
-          createdAt: '2024-03-05T14:45:00.000Z',
-          updatedAt: '2024-08-04T10:30:00.000Z',
-          lastLogin: '2024-08-04T13:15:00.000Z'
-        },
-        {
-          id: 4,
-          documentNumber: '1111222233',
-          documentType: 'CEDULA_EXTRANJERIA',
-          firstName: 'Ana Lucía',
-          lastName: 'Pérez Morales',
-          email: 'ana.perez@innovatech.com',
-          username: 'ana.perez',
-          role: 'USER',
-          status: 'INACTIVE',
-          company: {
-            id: 3,
-            name: 'InnovaTech SA',
-            nit: '700555444-3'
-          },
-          headquarters: {
-            id: 4,
-            name: 'Centro de Innovación',
-            code: 'INN-001'
-          },
-          jobTitle: {
-            id: 5,
-            name: 'Especialista en Marketing Digital',
-            code: 'VYM-ESP01',
-            process: {
-              name: 'Ventas y Marketing'
-            }
-          },
-          createdAt: '2024-04-12T08:30:00.000Z',
-          updatedAt: '2024-07-20T16:45:00.000Z',
-          lastLogin: '2024-07-15T09:30:00.000Z'
-        },
-        {
-          id: 5,
-          documentNumber: '8888999900',
-          documentType: 'CEDULA',
-          firstName: 'Luis Alberto',
-          lastName: 'González Herrera',
-          email: 'luis.gonzalez@itdimenzion.com',
-          phone: '+57 304 888 9999',
-          username: 'luis.gonzalez',
-          role: 'USER',
-          status: 'ACTIVE',
-          company: {
-            id: 1,
-            name: 'ITDimenzion SAS',
-            nit: '900123456-1'
-          },
-          headquarters: {
-            id: 2,
-            name: 'Sede Medellín',
-            code: 'MED-001'
-          },
-          jobTitle: {
-            id: 1,
-            name: 'Desarrollador Senior',
-            code: 'TEC-DEV01',
-            process: {
-              name: 'Tecnología'
-            }
-          },
-          createdAt: '2024-05-08T12:00:00.000Z',
-          updatedAt: '2024-08-03T14:20:00.000Z',
-          lastLogin: '2024-08-03T17:30:00.000Z'
-        }
-      ];
-      setUsers(mockUsers);
-    } catch (error) {
+      setError(null);
+      const response = await api.get('/users');
+      
+      // Filter users based on current user's permissions
+      const filteredUsers = response.data.users?.filter((user: User) => 
+        canManageUser(user.role)
+      ) || [];
+      
+      setUsers(filteredUsers);
+    } catch (error: any) {
       console.error('Error loading users:', error);
+      setError(
+        error.response?.data?.message || 
+        error.message || 
+        'Error al cargar los usuarios. Verifique su conexión.'
+      );
+      // Fallback to empty array for now
+      setUsers([]);
     }
-  };
+  }, [canManageUser]);  // Simplified dependencies
 
   const loadCompanies = async () => {
     try {
-      // TODO: Replace with actual API call
-      const mockCompanies: Company[] = [
-        { id: 1, name: 'ITDimenzion SAS', nit: '900123456-1' },
-        { id: 2, name: 'TechCorp Colombia', nit: '800987654-2' },
-        { id: 3, name: 'InnovaTech SA', nit: '700555444-3' }
-      ];
-      setCompanies(mockCompanies);
-    } catch (error) {
+      const response = await api.get('/companies');
+      setCompanies(response.data.companies || []);
+    } catch (error: any) {
       console.error('Error loading companies:', error);
+      // Fallback to empty array
+      setCompanies([]);
     }
   };
 
@@ -335,6 +205,10 @@ const UserList: React.FC<UserListProps> = ({
   };
 
   const handleDeleteClick = (user: User) => {
+    if (!canDeleteUser(user.role)) {
+      setError('No tienes permisos para eliminar este usuario');
+      return;
+    }
     setUserToDelete(user);
     setDeleteDialogOpen(true);
     handleMenuClose();
@@ -343,8 +217,7 @@ const UserList: React.FC<UserListProps> = ({
   const handleDeleteConfirm = async () => {
     if (userToDelete) {
       try {
-        await onDelete(userToDelete);
-        await loadUsers(); // Reload the list
+        await handleDelete(userToDelete);
         setDeleteDialogOpen(false);
         setUserToDelete(null);
       } catch (error) {
@@ -354,8 +227,75 @@ const UserList: React.FC<UserListProps> = ({
   };
 
   const handleToggleStatusClick = (user: User) => {
-    onToggleStatus(user);
+    if (!canEditUser(user.role)) {
+      setError('No tienes permisos para cambiar el estado de este usuario');
+      return;
+    }
+    handleToggleStatus(user);
     handleMenuClose();
+  };
+
+  // Funciones para manejar el modal - optimizadas con useCallback
+  const handleOpenModal = useCallback((mode: 'create' | 'edit' | 'view', user?: User) => {
+    // Previene el warning de aria-hidden moviendo el foco lejos de elementos activos
+    try { (document.activeElement as HTMLElement)?.blur?.(); } catch {}
+    setModalMode(mode);
+    setSelectedUser(user || null);
+    setModalOpen(true);
+  }, []);
+
+  // Handlers estables usando data attributes para evitar re-renders
+  const handleViewClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const documentNumber = event.currentTarget.getAttribute('data-document-number');
+    const user = users.find(u => u.documentNumber === documentNumber);
+    if (user) handleOpenModal('view', user);
+  }, [users, handleOpenModal]);
+
+  const handleEditClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const documentNumber = event.currentTarget.getAttribute('data-document-number');
+    const user = users.find(u => u.documentNumber === documentNumber);
+    if (user) handleOpenModal('edit', user);
+  }, [users, handleOpenModal]);
+
+  const handleMenuClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const documentNumber = event.currentTarget.getAttribute('data-document-number');
+    const user = users.find(u => u.documentNumber === documentNumber);
+    if (user) handleMenuOpen(event, user);
+  }, [users]);
+
+  const handleCloseModal = useCallback((shouldReload = false) => {
+    setModalOpen(false);
+    setSelectedUser(null);
+    // Solo recargar si se solicita explícitamente
+    if (shouldReload) {
+      loadUsers();
+    }
+  }, [loadUsers]);  // Now safe with memoized loadUsers
+
+  // Funciones para operaciones de usuarios
+  const handleDelete = async (user: User) => {
+    try {
+      await api.delete(`/users/${user.documentNumber}`);
+      setError(null);
+      await loadUsers(); // Recargar la lista
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      setError(error.response?.data?.message || 'Error al eliminar el usuario');
+    }
+  };
+
+  const handleToggleStatus = async (user: User) => {
+    try {
+      const newStatus = user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+      await api.patch(`/users/${user.documentNumber}/status`, {
+        status: newStatus
+      });
+      setError(null);
+      await loadUsers(); // Recargar la lista
+    } catch (error: any) {
+      console.error('Error toggling user status:', error);
+      setError(error.response?.data?.message || 'Error al cambiar el estado del usuario');
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -449,6 +389,11 @@ const UserList: React.FC<UserListProps> = ({
   };
 
   const filteredUsers = users.filter(user => {
+    // Check if current user can manage this user
+    if (!canManageUser(user.role)) {
+      return false;
+    }
+
     const matchesSearch = 
       user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -465,8 +410,124 @@ const UserList: React.FC<UserListProps> = ({
     return matchesSearch && matchesCompany && matchesRole && matchesStatus;
   });
 
+  // Get available roles based on current user's permissions
+  const availableRoles = getManagedRoles();
+  const roleOptions = [
+    { value: '', label: 'Todos los roles' },
+    ...availableRoles.map(role => ({
+      value: role,
+      label: getRoleLabel(role)
+    }))
+  ];
+
+  // Memoizar initialData para prevenir re-renders infinitos
+  const initialData = useMemo(() => {
+    if (!selectedUser) return undefined;
+    
+    return {
+      documentNumber: selectedUser.documentNumber,
+      documentType: selectedUser.documentType,
+      firstName: selectedUser.firstName,
+      lastName: selectedUser.lastName,
+      email: selectedUser.email,
+      phone: selectedUser.phone || '',
+      username: selectedUser.username,
+      role: selectedUser.role === 'SUPER_ADMIN' ? 'ADMIN' : selectedUser.role,
+      companyId: selectedUser.company?.id?.toString() || '',
+      headquartersId: selectedUser.headquarters?.id?.toString() || '',
+      jobTitleId: selectedUser.jobTitle?.id?.toString() || ''
+    };
+  }, [selectedUser]);
+
+  // UserModal component
+  const UserModal = () => (
+    <Dialog
+      open={modalOpen}
+      onClose={(event, reason) => {
+        if (reason === 'backdropClick') return;
+        handleCloseModal(false);
+      }}
+      maxWidth="md"          // Tamaño del modal: xs, sm, md, lg, xl
+      fullWidth              // Usa todo el ancho del maxWidth
+      disableAutoFocus        // Previene auto-focus que puede causar problemas
+      disableEnforceFocus     // Previene enforce focus que puede interferir
+      disableEscapeKeyDown
+      keepMounted
+      PaperProps={{
+        sx: {
+          borderRadius: 2,   // Bordes redondeados
+          minHeight: '60vh', // Altura mínima
+        }
+      }}
+    >
+      <DialogTitle sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        pb: 1 
+      }}>
+        {modalMode === 'create' && 'Nuevo Usuario'}
+        {modalMode === 'edit' && 'Editar Usuario'}
+        {modalMode === 'view' && 'Ver Usuario'}
+        <IconButton 
+          onClick={() => handleCloseModal(false)}
+          size="small"
+          sx={{ color: 'grey.500' }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      
+      <DialogContent dividers>
+        <UserForm
+          initialData={initialData}
+          onCancel={() => handleCloseModal(false)}
+          isEditMode={modalMode === 'edit'}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+
+  // Show loading if permissions are still loading
+  if (permissionsLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+        <CircularProgress />
+        <Typography sx={{ ml: 2 }}>Cargando permisos...</Typography>
+      </Box>
+    );
+  }
+
+  // Show error if no permission to view users
+  if (!hasPermission('users_read')) {
+    return (
+      <Box>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          <Box display="flex" alignItems="center">
+            <WarningIcon sx={{ mr: 1 }} />
+            No tienes permisos para ver la lista de usuarios
+          </Box>
+        </Alert>
+      </Box>
+    );
+  }
+
   return (
     <Box>
+      {/* Error Display */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Permissions Error */}
+      {permissionsError && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Error de permisos: {permissionsError}
+        </Alert>
+      )}
+
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -474,22 +535,32 @@ const UserList: React.FC<UserListProps> = ({
           <Typography variant="h4" component="h1">
             Gestión de Usuarios
           </Typography>
+          {currentUser && (
+            <Chip 
+              label={`Rol: ${getRoleLabel(currentUser.role)}`}
+              size="small"
+              color="primary"
+              sx={{ ml: 2 }}
+            />
+          )}
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={onCreateNew}
-          sx={{ borderRadius: 2 }}
-        >
-          Nuevo Usuario
-        </Button>
+        {hasPermission('users_create') && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenModal('create')}
+            sx={{ borderRadius: 2 }}
+          >
+            Nuevo Usuario
+          </Button>
+        )}
       </Box>
 
       {/* Search and Filters */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Grid container spacing={3} alignItems="center">
-            <Grid item xs={12} md={4}>
+            <Grid xs={12} md={4}>
               <TextField
                 fullWidth
                 placeholder="Buscar por nombre, email, documento o empresa..."
@@ -504,7 +575,7 @@ const UserList: React.FC<UserListProps> = ({
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={2}>
+            <Grid xs={12} md={2}>
               <FormControl fullWidth>
                 <InputLabel>Empresa</InputLabel>
                 <Select
@@ -522,7 +593,7 @@ const UserList: React.FC<UserListProps> = ({
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={2}>
+            <Grid xs={12} md={2}>
               <FormControl fullWidth>
                 <InputLabel>Rol</InputLabel>
                 <Select
@@ -530,15 +601,15 @@ const UserList: React.FC<UserListProps> = ({
                   onChange={(e) => setSelectedRole(e.target.value as string)}
                   label="Rol"
                 >
-                  <MenuItem value="">Todos los roles</MenuItem>
-                  <MenuItem value="SUPER_ADMIN">Super Admin</MenuItem>
-                  <MenuItem value="ADMIN">Administrador</MenuItem>
-                  <MenuItem value="SUPERVISOR">Supervisor</MenuItem>
-                  <MenuItem value="USER">Usuario</MenuItem>
+                  {roleOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={2}>
+            <Grid xs={12} md={2}>
               <FormControl fullWidth>
                 <InputLabel>Estado</InputLabel>
                 <Select
@@ -552,7 +623,7 @@ const UserList: React.FC<UserListProps> = ({
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={2}>
+            <Grid xs={12} md={2}>
               <Typography variant="body2" color="text.secondary" align="center">
                 {filteredUsers.length} usuario{filteredUsers.length !== 1 ? 's' : ''}
               </Typography>
@@ -593,7 +664,7 @@ const UserList: React.FC<UserListProps> = ({
                 </TableRow>
               ) : (
                 filteredUsers.map((user) => (
-                  <TableRow key={user.id} hover>
+                  <TableRow key={user.documentNumber}>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <Avatar sx={{ 
@@ -702,30 +773,39 @@ const UserList: React.FC<UserListProps> = ({
 
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Tooltip title="Ver detalles">
-                          <IconButton
-                            size="small"
-                            onClick={() => onView(user)}
-                          >
-                            <ViewIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Editar">
-                          <IconButton
-                            size="small"
-                            onClick={() => onEdit(user)}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Más opciones">
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleMenuOpen(e, user)}
-                          >
-                            <MoreVertIcon />
-                          </IconButton>
-                        </Tooltip>
+                        {hasPermission('users_read') && (
+                          <Tooltip title="Ver detalles">
+                            <IconButton
+                              size="small"
+                              onClick={handleViewClick}
+                              data-document-number={user.documentNumber}
+                            >
+                              <ViewIcon />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {canEditUser(user.role) && (
+                          <Tooltip title="Editar">
+                            <IconButton
+                              size="small"
+                              onClick={handleEditClick}
+                              data-document-number={user.documentNumber}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {(canEditUser(user.role) || canDeleteUser(user.role)) && (
+                          <Tooltip title="Más opciones">
+                            <IconButton
+                              size="small"
+                              onClick={handleMenuClick}
+                              data-document-number={user.documentNumber}
+                            >
+                              <MoreVertIcon />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -742,28 +822,34 @@ const UserList: React.FC<UserListProps> = ({
         open={Boolean(menuAnchorEl)}
         onClose={handleMenuClose}
       >
-        {selectedUser?.status === 'ACTIVE' ? (
-          <MenuItem onClick={() => selectedUser && handleToggleStatusClick(selectedUser)}>
+        {selectedUser && canEditUser(selectedUser.role) && (
+          selectedUser.status === 'ACTIVE' ? (
+            <MenuItem onClick={() => selectedUser && handleToggleStatusClick(selectedUser)}>
+              <ListItemIcon>
+                <BlockIcon fontSize="small" color="warning" />
+              </ListItemIcon>
+              <ListItemText>Desactivar usuario</ListItemText>
+            </MenuItem>
+          ) : (
+            <MenuItem onClick={() => selectedUser && handleToggleStatusClick(selectedUser)}>
+              <ListItemIcon>
+                <CheckCircleIcon fontSize="small" color="success" />
+              </ListItemIcon>
+              <ListItemText>Activar usuario</ListItemText>
+            </MenuItem>
+          )
+        )}
+        {selectedUser && canEditUser(selectedUser.role) && canDeleteUser(selectedUser.role) && (
+          <Divider />
+        )}
+        {selectedUser && canDeleteUser(selectedUser.role) && (
+          <MenuItem onClick={() => selectedUser && handleDeleteClick(selectedUser)}>
             <ListItemIcon>
-              <BlockIcon fontSize="small" color="warning" />
+              <DeleteIcon fontSize="small" color="error" />
             </ListItemIcon>
-            <ListItemText>Desactivar usuario</ListItemText>
-          </MenuItem>
-        ) : (
-          <MenuItem onClick={() => selectedUser && handleToggleStatusClick(selectedUser)}>
-            <ListItemIcon>
-              <CheckCircleIcon fontSize="small" color="success" />
-            </ListItemIcon>
-            <ListItemText>Activar usuario</ListItemText>
+            <ListItemText>Eliminar usuario</ListItemText>
           </MenuItem>
         )}
-        <Divider />
-        <MenuItem onClick={() => selectedUser && handleDeleteClick(selectedUser)}>
-          <ListItemIcon>
-            <DeleteIcon fontSize="small" color="error" />
-          </ListItemIcon>
-          <ListItemText>Eliminar usuario</ListItemText>
-        </MenuItem>
       </Menu>
 
       {/* Delete Confirmation Dialog */}
@@ -785,7 +871,18 @@ const UserList: React.FC<UserListProps> = ({
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             Se eliminará permanentemente toda la información asociada al usuario.
           </Typography>
-          {userToDelete && (
+          
+          {/* Show permission warning if trying to delete higher-level user */}
+          {userToDelete && !canDeleteUser(userToDelete.role) && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              <Box display="flex" alignItems="center">
+                <WarningIcon sx={{ mr: 1 }} />
+                No tienes permisos suficientes para eliminar un usuario con rol {getRoleLabel(userToDelete.role)}
+              </Box>
+            </Alert>
+          )}
+          
+          {userToDelete && canDeleteUser(userToDelete.role) && (
             <Alert severity="warning" sx={{ mt: 2 }}>
               Usuario: {userToDelete.firstName} {userToDelete.lastName}<br/>
               Documento: {getDocumentTypeLabel(userToDelete.documentType)} {userToDelete.documentNumber}<br/>
@@ -801,11 +898,15 @@ const UserList: React.FC<UserListProps> = ({
             onClick={handleDeleteConfirm}
             color="error"
             variant="contained"
+            disabled={userToDelete ? !canDeleteUser(userToDelete.role) : true}
           >
             Eliminar
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* UserModal */}
+      <UserModal />
     </Box>
   );
 };

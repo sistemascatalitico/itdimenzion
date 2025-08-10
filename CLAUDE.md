@@ -111,17 +111,19 @@ The system uses a hierarchical company structure:
 
 ## Development Environment
 
-### Docker Configuration
-- **Frontend**: Runs on port 3000, connects to backend at port 4000
-- **Backend**: Runs on port 4000, connects to MySQL on port 3306
-- **MySQL**: Runs on port 3306 (mapped to 27017 for MongoDB compatibility in current config)
+### Current Development Configuration  
+- **Frontend**: Runs on port 3002 (auto-assigned due to port conflicts), connects to backend at port 4001
+- **Backend**: Runs on port 4001 (close to spec, avoiding system conflicts on 4000), connects to MySQL on port 3306
+- **MySQL**: Runs on port 3306
+- **Note**: Backend using clean server (index-clean.ts) due to middleware security issues with main server
+- **Environment**: Frontend .env configured with VITE_API_URL=http://localhost:4001/api
 
 ### Environment Variables
 Backend requires:
 - `DATABASE_URL`: MySQL connection string
 - `JWT_SECRET`: JWT signing secret
 - `NODE_ENV`: development/production
-- `PORT`: Server port (default 4000)
+- `PORT`: Server port (currently 4001, avoiding system conflicts on 4000)
 
 Frontend requires:
 - `REACT_APP_API_URL`: Backend API URL
@@ -422,3 +424,60 @@ Este archivo no contiene el log completo. Las acciones se registran en `CLAUDE.l
 - **Tema**: Rosa consistente (#FF69B4) en todos los selectores  
 - **UX**: Transiciones suaves y estados visuales mejorados
 - **Responsive**: Funciona correctamente en todas las resoluciones
+
+### Últimas Correcciones Críticas - 2025-08-09T19:00:00Z
+
+**COMPLETADO**: Corrección definitiva de parpadeos en modal de usuarios
+
+#### Problema Identificado:
+- **Issue**: Modal de usuarios parpadeaba al mover el mouse sobre la tabla
+- **Síntoma**: Apertura/cierre errático del modal en cada movimiento del mouse
+- **Causa Raíz**: Múltiples re-renders causados por event handlers inline y prop `hover`
+
+#### Soluciones Implementadas:
+
+**1. Eliminación del Prop Hover:**
+- **Problema**: `<TableRow hover>` causaba re-renders en cada mouse movement
+- **Solución**: Removido el prop `hover` de TableRow:649 en UserList.tsx
+
+**2. Memoización de LoadUsers:**
+- **Problema**: `loadUsers` se recreaba en cada render, invalidando useCallback dependencies
+- **Solución**: Aplicado `useCallback` con dependencias estables
+```typescript
+const loadUsers = useCallback(async () => {
+  // ... implementation
+}, [canManageUser]);
+```
+
+**3. Handlers Estables con Data Attributes:**
+- **Problema**: Inline arrow functions creaban nuevas funciones en cada render
+- **Solución**: Implementación de handlers estables usando `data-document-number`
+```typescript
+// ANTES (problemático):
+onClick={() => handleOpenModal('view', user)}
+
+// DESPUÉS (estable):
+onClick={handleViewClick}
+data-document-number={user.documentNumber}
+```
+
+**4. Cadena de useCallback Estabilizada:**
+- **Problema**: Dependencies chain causaba re-renders en cascada
+- **Solución**: useCallback optimizado para handleCloseModal, handleViewClick, handleEditClick
+
+#### Archivos Modificados:
+- `frontend/src/components/users/UserList.tsx:649` - Removido hover prop
+- `frontend/src/components/users/UserList.tsx:163-184` - Memoized loadUsers
+- `frontend/src/components/users/UserList.tsx:248-266` - Handlers estables implementados
+- `frontend/src/components/users/UserList.tsx:770-785` - Data attributes añadidos
+
+#### Configuración de Puertos Actualizada:
+- **Backend**: Puerto 4000 (evitando conflictos con puerto 4001)
+- **Frontend**: API URL actualizada a `http://localhost:4000/api`
+- **Servers Status**: Ambos servidores ejecutándose correctamente
+
+#### Resultado:
+✅ **Modal completamente estable** - Sin parpadeos al mover mouse
+✅ **Performance optimizada** - Eliminados re-renders innecesarios  
+✅ **Event handlers estables** - Usando data attributes pattern
+✅ **Servidores funcionales** - Backend:4000, Frontend:3001
