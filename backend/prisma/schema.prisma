@@ -112,10 +112,19 @@ model User {
   documentType          DocumentType
   username              String       @unique // Unique username for login
   email                 String       @unique // Unique email for login
+  contactEmail          String?
   password              String
   firstName             String
   lastName              String
   phone                 String?
+  // Address and residence fields (flat strings, single association semantics)
+  addressLine1          String?      @db.Text
+  addressLine2          String?      @db.Text
+  residenceCountry      String?      // ISO-2 code (e.g., CO, US)
+  residenceState        String?      // Region/state code or name (project-defined)
+  residenceCity         String?      // City name
+  commentary            String?      @db.Text
+  userGroupId           Int?
   role                  UserRole     @default(USER)
   status                Status       @default(ACTIVE)
   lastLogin             DateTime?
@@ -143,6 +152,7 @@ model User {
   headquarters          Headquarters? @relation(fields: [headquartersId], references: [id])
   process               Process?     @relation(fields: [processId], references: [id])
   jobTitle              JobTitle?    @relation(fields: [jobTitleId], references: [id])
+  userGroup             UserGroup?   @relation(fields: [userGroupId], references: [id])
   creator               User?        @relation("UserCreatedBy", fields: [createdBy], references: [documentNumber])
   createdUsers          User[]       @relation("UserCreatedBy")
   refreshTokens         RefreshToken[]
@@ -236,6 +246,7 @@ model UserGroup {
   updatedBy   String?
   
   members     UserGroupMember[]
+  users       User[]
   
   @@map("user_groups")
 }

@@ -32,9 +32,8 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH } from './layoutConstants';
 
-const SIDEBAR_WIDTH = 280;
-const SIDEBAR_COLLAPSED_WIDTH = 70;
 
 interface MenuItem {
   id: string;
@@ -57,22 +56,8 @@ const menuItems: MenuItem[] = [
     id: 'users',
     label: 'Gestión de Usuarios',
     icon: <PeopleIcon />,
-    children: [
-      { id: 'users-list', label: 'Lista de Usuarios', icon: <PeopleIcon />, path: '/users' },
-      { id: 'users-groups', label: 'Grupos de Usuarios', icon: <AccountTreeIcon />, path: '/users/groups' },
-      { id: 'users-roles', label: 'Roles y Permisos', icon: <SecurityIcon />, path: '/users/roles', roles: ['SUPER_ADMIN', 'ADMIN'] },
-    ],
-  },
-  {
-    id: 'organization',
-    label: 'Organización',
-    icon: <BusinessIcon />,
-    children: [
-      { id: 'companies', label: 'Empresas', icon: <BusinessIcon />, path: '/companies' },
-      { id: 'headquarters', label: 'Sedes', icon: <BusinessIcon />, path: '/headquarters' },
-      { id: 'processes', label: 'Procesos', icon: <AccountTreeIcon />, path: '/processes' },
-      { id: 'job-titles', label: 'Cargos', icon: <WorkIcon />, path: '/job-titles' },
-    ],
+    path: '/users',
+    roles: ['SUPER_ADMIN', 'ADMIN'],
   },
   {
     id: 'assets',
@@ -83,6 +68,17 @@ const menuItems: MenuItem[] = [
       { id: 'assets-categories', label: 'Categorías', icon: <AccountTreeIcon />, path: '/assets/categories' },
       { id: 'assets-groups', label: 'Grupos de Activos', icon: <AccountTreeIcon />, path: '/assets/groups' },
       { id: 'assets-reports', label: 'Reportes', icon: <ReportsIcon />, path: '/assets/reports' },
+    ],
+    roles: ['SUPER_ADMIN', 'ADMIN', 'SUPERVISOR'],
+  },
+  {
+    id: 'tickets',
+    label: 'Gestión de Tickets',
+    icon: <ReportsIcon />,
+    children: [
+      { id: 'tickets-list', label: 'Lista de Tickets', icon: <ReportsIcon />, path: '/tickets' },
+      { id: 'tickets-create', label: 'Crear Ticket', icon: <ReportsIcon />, path: '/tickets/create' },
+      { id: 'tickets-reports', label: 'Reportes', icon: <ReportsIcon />, path: '/tickets/reports' },
     ],
     roles: ['SUPER_ADMIN', 'ADMIN', 'SUPERVISOR'],
   },
@@ -148,8 +144,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     navigate('/login');
   };
 
-  const isItemActive = (path?: string) => {
-    return path && location.pathname === path;
+  const isItemActive = (path?: string): boolean => {
+    return !!path && location.pathname === path;
   };
 
   const hasPermission = (roles?: string[]) => {
@@ -317,12 +313,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               variant="subtitle1"
+              noWrap
               sx={{
                 color: 'white',
                 fontWeight: 600,
                 fontSize: '0.875rem',
                 lineHeight: 1.2,
-                noWrap: true,
               }}
             >
               {user?.firstName} {user?.lastName}
@@ -430,6 +426,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           width: collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH,
           boxSizing: 'border-box',
           background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E6B 100%)',
+          borderRight: 'none',
+          margin: 0,
           zIndex: (theme) => theme.zIndex.drawer + 1,
           transition: theme => theme.transitions.create('width', {
             easing: theme.transitions.easing.sharp,

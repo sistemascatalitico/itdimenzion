@@ -1,6 +1,6 @@
 import React from 'react';
 import { TextField, InputAdornment, Select, MenuItem, Box, Typography } from '@mui/material';
-import { usePhoneInput, CountrySelector, usePhoneValidation } from 'react-international-phone';
+import { usePhoneInput, CountrySelector } from 'react-international-phone';
 import ReactCountryFlag from 'react-country-flag';
 // import 'react-international-phone/style.css'; // Comentado temporalmente
 
@@ -35,7 +35,8 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
     }
   });
 
-  const phoneValidation = usePhoneValidation(value);
+  // Nota: Algunas versiones de react-international-phone no exponen usePhoneValidation.
+  // Usamos la prop error externa o validación mínima si es necesario.
 
   return (
     <Box>
@@ -46,11 +47,8 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
         value={phoneInput.phone}
         onChange={phoneInput.handlePhoneValueChange}
         onBlur={onBlur}
-        error={error || !phoneValidation.isValid && value.length > 0}
-        helperText={
-          helperText || 
-          (!phoneValidation.isValid && value.length > 0 ? 'Número de teléfono inválido' : '')
-        }
+        error={error}
+        helperText={helperText}
         required={required}
         disabled={disabled}
         InputProps={{
@@ -135,14 +133,13 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           ),
         }}
         sx={{
-          '& .react-international-phone-input': {
-            border: 'none',
-            outline: 'none',
-            fontSize: 'inherit',
-            fontFamily: 'inherit'
-          },
           '& .MuiOutlinedInput-root': {
-            borderRadius: 1, // Rectangular con bordes sutiles
+            borderRadius: 1,
+            '&:hover fieldset': { borderColor: '#FF69B4' },
+            '&.Mui-focused fieldset': {
+              borderColor: '#FF69B4',
+              boxShadow: '0 0 0 2px rgba(255, 105, 180, 0.2)'
+            }
           }
         }}
       />

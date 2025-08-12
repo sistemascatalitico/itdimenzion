@@ -94,10 +94,22 @@ export const register = async (req: Request, res: Response) => {
     // Generar token de verificación de email
     const emailVerificationToken = generateSecureRandomString(32);
 
+    // Generar username único basado en documento
+    const baseUsername = `user_${documentNumber}`;
+    let username = baseUsername;
+    let counter = 1;
+    
+    // Verificar si el username ya existe y generar uno único
+    while (await prisma.user.findUnique({ where: { username } })) {
+      username = `${baseUsername}_${counter}`;
+      counter++;
+    }
+
     // Crear el usuario
     const newUser = await prisma.user.create({
       data: {
         email: email.toLowerCase(),
+        username,
         password: hashedPassword,
         firstName,
         lastName,
@@ -112,12 +124,12 @@ export const register = async (req: Request, res: Response) => {
         status: 'ACTIVE',
       },
       select: {
-        id: true,
+        documentNumber: true,
         email: true,
         firstName: true,
         lastName: true,
         documentType: true,
-        documentNumber: true,
+        username: true,
         role: true,
         status: true,
         createdAt: true,
@@ -137,7 +149,7 @@ export const register = async (req: Request, res: Response) => {
     });
 
     logSecurityEvent('USER_REGISTERED', req, {
-      userId: newUser.id,
+      userId: newUser.documentNumber,
       email: newUser.email,
       headquartersId,
     });
@@ -199,7 +211,7 @@ export const login = async (req: Request, res: Response) => {
       failureReason: '',
     };
 
-    console.log('👤 User found:', user ? { id: user.id, email: user.email, role: user.role } : null);
+    console.log('👤 User found:', user ? { documentNumber: user.documentNumber, email: user.email, role: user.role } : null);
 
     if (!user) {
       console.log('❌ User not found');
@@ -218,7 +230,7 @@ export const login = async (req: Request, res: Response) => {
       
       await prisma.loginLog.create({
         data: {
-          userId: user.id,
+          userId: user.documentNumber,
           ipAddress: loginData.ipAddress || 'unknown',
           userAgent: loginData.userAgent || 'unknown',
           success: false,
@@ -243,7 +255,7 @@ export const login = async (req: Request, res: Response) => {
       const shouldLock = newAttempts >= securityConfig.loginSecurity.maxAttempts;
       
       await prisma.user.update({
-        where: { id: user.id },
+        where: { documentNumber: user.documentNumber },
         data: {
           loginAttempts: newAttempts,
           ...(shouldLock && {
@@ -256,7 +268,7 @@ export const login = async (req: Request, res: Response) => {
       
       await prisma.loginLog.create({
         data: {
-          userId: user.id,
+          userId: user.documentNumber,
           ipAddress: loginData.ipAddress || 'unknown',
           userAgent: loginData.userAgent || 'unknown',
           success: false,
@@ -282,7 +294,7 @@ export const login = async (req: Request, res: Response) => {
       
       await prisma.loginLog.create({
         data: {
-          userId: user.id,
+          userId: user.documentNumber,
           ipAddress: loginData.ipAddress || 'unknown',
           userAgent: loginData.userAgent || 'unknown',
           success: false,
@@ -300,7 +312,7 @@ export const login = async (req: Request, res: Response) => {
 
     // Login exitoso - Limpiar intentos fallidos
     await prisma.user.update({
-      where: { id: user.id },
+      where: { documentNumber: user.documentNumber },
       data: {
         loginAttempts: 0,
         lockedUntil: null,
@@ -310,19 +322,19 @@ export const login = async (req: Request, res: Response) => {
 
     // Generar tokens
     const accessToken = generateAccessToken({
-      id: user.id,
+      documentNumber: user.documentNumber,
       email: user.email,
       role: user.role,
       headquartersId: user.headquartersId?.toString() || '0',
     });
 
-    const refreshToken = generateRefreshToken(user.id);
+    const refreshToken = generateRefreshToken(user.documentNumber);
     
     // Guardar refresh token
     await prisma.refreshToken.create({
       data: {
         token: refreshToken,
-        userId: user.id,
+        userId: user.documentNumber,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días
       },
     });
@@ -330,7 +342,7 @@ export const login = async (req: Request, res: Response) => {
     // Log de login exitoso
     await prisma.loginLog.create({
       data: {
-        userId: user.id,
+        userId: user.documentNumber,
         ipAddress: loginData.ipAddress || 'unknown',
         userAgent: loginData.userAgent || 'unknown',
         success: true,
@@ -338,7 +350,7 @@ export const login = async (req: Request, res: Response) => {
     });
 
     logSecurityEvent('LOGIN_SUCCESS', req, {
-      userId: user.id,
+      userId: user.documentNumber,
       email: user.email,
     });
 
@@ -354,7 +366,7 @@ export const login = async (req: Request, res: Response) => {
       message: 'Login exitoso',
       accessToken,
       user: {
-        id: user.id,
+        documentNumber: user.documentNumber,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
@@ -431,7 +443,7 @@ export const refreshToken = async (req: Request, res: Response) => {
 
     // Generar nuevo access token
     const newAccessToken = generateAccessToken({
-      id: storedToken.user.id,
+      documentNumber: storedToken.user.documentNumber,
       email: storedToken.user.email,
       role: storedToken.user.role,
       headquartersId: storedToken.user.headquartersId?.toString() || '0',
@@ -467,7 +479,7 @@ export const logout = async (req: AuthenticatedRequest, res: Response) => {
     res.clearCookie('refreshToken');
 
     logSecurityEvent('USER_LOGOUT', req, {
-      userId: req.user?.id,
+      userId: req.user?.documentNumber,
     });
 
     res.json({
@@ -495,14 +507,13 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
+      where: { documentNumber: req.user.documentNumber },
       select: {
-        id: true,
+        documentNumber: true,
         email: true,
         firstName: true,
         lastName: true,
         documentType: true,
-        documentNumber: true,
         phone: true,
         role: true,
         status: true,

@@ -20,6 +20,7 @@ async function createTestUsers() {
     const testUsers = [
       {
         email: 'admin.test@itdimenzion.com',
+        username: 'admin.test',
         password: 'H3lpD3sk.2025',
         firstName: 'Admin',
         lastName: 'Test User',
@@ -30,6 +31,7 @@ async function createTestUsers() {
       },
       {
         email: 'supervisor.test@itdimenzion.com',
+        username: 'supervisor.test',
         password: 'H3lpD3sk.2025',
         firstName: 'Supervisor',
         lastName: 'Test User',
@@ -40,6 +42,7 @@ async function createTestUsers() {
       },
       {
         email: 'user.test@itdimenzion.com',
+        username: 'user.test',
         password: 'H3lpD3sk.2025',
         firstName: 'Regular',
         lastName: 'Test User',
@@ -70,6 +73,7 @@ async function createTestUsers() {
       const user = await prisma.user.create({
         data: {
           email: userData.email,
+          username: userData.username,
           password: hashedPassword,
           firstName: userData.firstName,
           lastName: userData.lastName,

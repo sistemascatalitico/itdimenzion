@@ -43,20 +43,10 @@ app.get('/health', (req, res) => {
 // Import routes
 import authRoutes from './routes/auth.routes';
 import enhancedUserRoutes from './routes/enhancedUsers';
-import companyRoutes from './routes/companies';
-import roleRoutes from './routes/roles';
-import processRoutes from './routes/processes';
-import headquartersRoutes from './routes/headquarters';
-import jobTitleRoutes from './routes/jobTitles';
 
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', enhancedUserRoutes);
-app.use('/api/companies', companyRoutes);
-app.use('/api/roles', roleRoutes);
-app.use('/api/processes', processRoutes);
-app.use('/api/headquarters', headquartersRoutes);
-app.use('/api/job-titles', jobTitleRoutes);
 
 // API root endpoint
 app.get('/api', (req, res) => {
@@ -67,11 +57,6 @@ app.get('/api', (req, res) => {
     endpoints: {
       auth: '/api/auth',
       users: '/api/users',
-      companies: '/api/companies',
-      roles: '/api/roles',
-      processes: '/api/processes',
-      headquarters: '/api/headquarters',
-      jobTitles: '/api/job-titles',
       health: '/health',
     },
   });

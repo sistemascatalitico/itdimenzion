@@ -22,6 +22,8 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import LoadingScreen from '../common/LoadingScreen';
+import SuccessMessage from '../common/SuccessMessage';
 
 interface LoginData {
   email: string;
@@ -48,6 +50,9 @@ const LoginForm: React.FC = () => {
   const [errors, setErrors] = useState<LoginErrors>({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showLoadingScreen, setShowLoadingScreen] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [showInitialLoading, setShowInitialLoading] = useState(true);
 
   const validateForm = (): boolean => {
     const newErrors: LoginErrors = {};
@@ -102,9 +107,8 @@ const LoginForm: React.FC = () => {
       const result = await login(formData.email.trim().toLowerCase(), formData.password);
       
       if (result.success) {
-        // Redirect based on user role or intended destination
-        const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/dashboard';
-        navigate(redirectTo);
+        // Mostrar pantalla de carga
+        setShowLoadingScreen(true);
       } else {
         setErrors({ general: result.error || 'Error en el inicio de sesión' });
       }
@@ -123,6 +127,22 @@ const LoginForm: React.FC = () => {
     navigate('/register');
   };
 
+  const handleLoadingComplete = () => {
+    setShowLoadingScreen(false);
+    setShowSuccessMessage(true);
+  };
+
+  const handleSuccessComplete = () => {
+    setShowSuccessMessage(false);
+    // Redirect based on user role or intended destination
+    const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/dashboard';
+    navigate(redirectTo);
+  };
+
+  const handleInitialLoadingComplete = () => {
+    setShowInitialLoading(false);
+  };
+
   return (
     <Box
       className="gradient-bg"
@@ -136,6 +156,9 @@ const LoginForm: React.FC = () => {
         top: 0,
         left: 0,
         p: 2,
+        opacity: showInitialLoading ? 0 : 1,
+        transition: 'opacity 0.5s ease-in-out',
+        pointerEvents: showInitialLoading ? 'none' : 'auto',
       }}
     >
       <Card
@@ -319,6 +342,27 @@ const LoginForm: React.FC = () => {
           </Box>
         </CardContent>
       </Card>
+
+      {/* Pantalla de Carga Inicial */}
+      <LoadingScreen 
+        isVisible={showInitialLoading} 
+        onComplete={handleInitialLoadingComplete}
+        duration={1500}
+      />
+
+      {/* Pantalla de Carga */}
+      <LoadingScreen 
+        isVisible={showLoadingScreen} 
+        onComplete={handleLoadingComplete}
+        duration={1000}
+      />
+
+      {/* Mensaje de Éxito */}
+      <SuccessMessage 
+        isVisible={showSuccessMessage} 
+        onComplete={handleSuccessComplete}
+        message="¡Inicio de sesión exitoso!"
+      />
     </Box>
   );
 };

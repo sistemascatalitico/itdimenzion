@@ -290,7 +290,7 @@ const LocationSelectors: React.FC<LocationSelectorsProps> = ({
       </Grid>
 
       {/* CSS personalizado para react-country-state-city */}
-      <style jsx global>{`
+      <style>{`
         .country-select-container,
         .state-select-container,
         .city-select-container {
@@ -307,7 +307,8 @@ const LocationSelectors: React.FC<LocationSelectorsProps> = ({
           border-radius: 4px !important;
           font-size: 16px !important;
           font-family: "Roboto", "Helvetica", "Arial", sans-serif !important;
-          background: white !important;
+          background: #fff !important;
+          color: #1f1f1f !important;
           min-height: 20px !important;
           box-sizing: border-box !important;
           transition: border-color 0.2s ease, box-shadow 0.2s ease !important;

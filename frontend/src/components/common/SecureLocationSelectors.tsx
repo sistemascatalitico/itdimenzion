@@ -152,7 +152,8 @@ const SecureLocationSelectors: React.FC<SecureLocationSelectorsProps> = ({
 
   // Cargar datos externos solo si está habilitado y es necesario
   useEffect(() => {
-    if (enableDynamicLoading && !value.country) {
+    // Cargar países externos una sola vez si se solicita, pero sin bloquear la UI
+    if (enableDynamicLoading && externalCountries.length === 0) {
       loadExternalCountries();
     }
   }, [enableDynamicLoading]);
@@ -176,12 +177,14 @@ const SecureLocationSelectors: React.FC<SecureLocationSelectorsProps> = ({
   const loadExternalCountries = async () => {
     try {
       setLoading(true);
-      // Aquí puedes integrar con react-country-state-city de forma controlada
-      // const { GetCountries } = await import('react-country-state-city');
-      // const countries = GetCountries();
-      // setExternalCountries(countries);
+      const mod: any = await import('react-country-state-city');
+      const countries = mod.GetCountries ? mod.GetCountries() : [];
+      // Normalizamos a {id, name}
+      const normalized = (countries || []).map((c: any) => ({ id: c.iso2 || c.id, name: c.name }));
+      setExternalCountries(normalized);
     } catch (error) {
-      console.warn('Failed to load external countries, using fallback data');
+      // Silenciar a info para no llenar la consola
+      // console.info('No external countries loaded, using local priority list');
     } finally {
       setLoading(false);
     }
@@ -190,11 +193,12 @@ const SecureLocationSelectors: React.FC<SecureLocationSelectorsProps> = ({
   const loadExternalStates = async (countryId: string) => {
     try {
       setLoading(true);
-      // const { GetState } = await import('react-country-state-city');
-      // const states = GetState(countryId);
-      // setExternalStates(states);
+      const mod: any = await import('react-country-state-city');
+      const states = mod.GetState ? mod.GetState(countryId) : [];
+      const normalized = (states || []).map((s: any) => ({ id: s.state_code || s.id, name: s.name }));
+      setExternalStates(normalized);
     } catch (error) {
-      console.warn('Failed to load external states, using fallback data');
+      // console.info('No external states loaded for', countryId);
     } finally {
       setLoading(false);
     }
@@ -203,11 +207,12 @@ const SecureLocationSelectors: React.FC<SecureLocationSelectorsProps> = ({
   const loadExternalCities = async (countryId: string, stateId: string) => {
     try {
       setLoading(true);
-      // const { GetCity } = await import('react-country-state-city');
-      // const cities = GetCity(countryId, stateId);
-      // setExternalCities(cities);
+      const mod: any = await import('react-country-state-city');
+      const cities = mod.GetCity ? mod.GetCity(countryId, stateId) : [];
+      const normalized = (cities || []).map((c: any) => ({ id: c.id || c.name, name: c.name }));
+      setExternalCities(normalized);
     } catch (error) {
-      console.warn('Failed to load external cities, using fallback data');
+      // console.info('No external cities loaded for', countryId, stateId);
     } finally {
       setLoading(false);
     }
@@ -217,6 +222,10 @@ const SecureLocationSelectors: React.FC<SecureLocationSelectorsProps> = ({
     const countryId = event.target.value;
     const country = PRIORITY_COUNTRIES.find(c => c.id === countryId) || 
                    externalCountries.find(c => c.id === countryId);
+    
+    // Limpiar estados y ciudades cuando cambia el país
+    setExternalStates([]);
+    setExternalCities([]);
     
     onChange({
       country: countryId,
@@ -232,6 +241,9 @@ const SecureLocationSelectors: React.FC<SecureLocationSelectorsProps> = ({
     const country = PRIORITY_COUNTRIES.find(c => c.id === value.country);
     const state = country?.states?.find(s => s.id === stateId) ||
                  externalStates.find(s => s.id === stateId);
+    
+    // Limpiar ciudades cuando cambia el estado
+    setExternalCities([]);
     
     onChange({
       ...value,
@@ -261,9 +273,7 @@ const SecureLocationSelectors: React.FC<SecureLocationSelectorsProps> = ({
     }
     
     const country = PRIORITY_COUNTRIES.find(c => c.id === value.country);
-    if (country?.states) {
-      return country.states;
-    }
+    if (country?.states && country.states.length) return country.states;
     return externalStates;
   };
 
@@ -308,10 +318,21 @@ const SecureLocationSelectors: React.FC<SecureLocationSelectorsProps> = ({
           >
             <InputLabel>País {required && '*'}</InputLabel>
             <Select
+              key={`country-${value.country}-${externalCountries.length}`}
               value={value.country}
               onChange={handleCountryChange}
               label={`País ${required ? '*' : ''}`}
               disabled={disabled || loading}
+              MenuProps={{
+                disablePortal: true,
+                PaperProps: {
+                  sx: {
+                    maxHeight: 320,
+                    '&::-webkit-scrollbar': { width: 6 },
+                    '&::-webkit-scrollbar-thumb': { backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: 3 },
+                  }
+                }
+              }}
             >
               {getAvailableCountries().map((country) => (
                 <MenuItem key={country.id} value={country.id}>
@@ -371,11 +392,22 @@ const SecureLocationSelectors: React.FC<SecureLocationSelectorsProps> = ({
           >
             <InputLabel>Departamento/Estado {required && '*'}</InputLabel>
             <Select
+              key={`state-${value.state}-${externalStates.length}`}
               value={value.state}
               onChange={handleStateChange}
               label={`Departamento/Estado ${required ? '*' : ''}`}
               disabled={disabled || !value.country || loading}
               startAdornment={loading ? <CircularProgress size={16} /> : null}
+              MenuProps={{
+                disablePortal: true,
+                PaperProps: {
+                  sx: {
+                    maxHeight: 320,
+                    '&::-webkit-scrollbar': { width: 6 },
+                    '&::-webkit-scrollbar-thumb': { backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: 3 },
+                  }
+                }
+              }}
             >
               {getAvailableStates().map((state) => (
                 <MenuItem key={state.id} value={state.id}>
@@ -430,11 +462,22 @@ const SecureLocationSelectors: React.FC<SecureLocationSelectorsProps> = ({
           >
             <InputLabel>Ciudad {required && '*'}</InputLabel>
             <Select
+              key={`city-${value.city}-${externalCities.length}`}
               value={value.city}
               onChange={handleCityChange}
               label={`Ciudad ${required ? '*' : ''}`}
               disabled={disabled || !value.state || loading}
               startAdornment={loading ? <CircularProgress size={16} /> : null}
+              MenuProps={{
+                disablePortal: true,
+                PaperProps: {
+                  sx: {
+                    maxHeight: 320,
+                    '&::-webkit-scrollbar': { width: 6 },
+                    '&::-webkit-scrollbar-thumb': { backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: 3 },
+                  }
+                }
+              }}
             >
               {getAvailableCities().map((city) => (
                 <MenuItem key={city} value={city}>
@@ -464,7 +507,7 @@ const SecureLocationSelectors: React.FC<SecureLocationSelectorsProps> = ({
       </Box>
       
       {/* CSS adicional para garantizar layout vertical */}
-      <style jsx global>{`
+      <style>{`
         /* Forzar layout vertical en todos los breakpoints */
         .MuiGrid-container .MuiGrid-item {
           max-width: 100% !important;

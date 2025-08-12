@@ -4,10 +4,15 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  esbuild: {
+    // Eliminar console/debugger en producción de forma segura
+    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
+  },
   server: {
     port: 3000,
     host: true,
     cors: true,
+    strictPort: true,
     headers: {
       'X-Frame-Options': 'DENY',
       'X-Content-Type-Options': 'nosniff',
@@ -37,13 +42,5 @@ export default defineConfig({
         },
       },
     },
-  },
-  define: {
-    // Eliminar console.log en producción
-    ...(process.env.NODE_ENV === 'production' && {
-      'console.log': 'void 0',
-      'console.warn': 'void 0',
-      'console.error': 'void 0',
-    }),
   },
 })

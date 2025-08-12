@@ -15,14 +15,14 @@ export const comparePassword = async (
 };
 
 export const generateAccessToken = (user: {
-  id: string;
+  documentNumber: string;
   email: string;
   role: UserRole;
   headquartersId: string;
 }): string => {
   return jwt.sign(
     {
-      id: user.id,
+      documentNumber: user.documentNumber,
       email: user.email,
       role: user.role,
       headquartersId: user.headquartersId,

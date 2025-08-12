@@ -8,12 +8,10 @@ import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './components/layout/Dashboard';
-import CompanyManagement from './components/companies/CompanyManagement';
-import HeadquartersManagement from './components/headquarters/HeadquartersManagement';
-import ProcessManagement from './components/processes/ProcessManagement';
-import JobTitleManagement from './components/jobtitles/JobTitleManagement';
-import UserManagement from './components/users/UserManagement';
+import UserList from './components/users/UserList';
+import ProfilePage from './components/profile/ProfilePage';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import TestConnection from './TestConnection';
 
 /**
  * Root redirect component - redirects to appropriate route based on auth status
@@ -35,7 +33,12 @@ const RootRedirect: React.FC = () => {
  */
 const AppContent: React.FC = () => {
   return (
-    <Router>
+    <Router
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true
+      }}
+    >
       <Routes>
         {/* Root redirect */}
         <Route path="/" element={<RootRedirect />} />
@@ -43,6 +46,7 @@ const AppContent: React.FC = () => {
         {/* Public routes */}
         <Route path="/login" element={<LoginForm />} />
         <Route path="/register" element={<RegisterForm />} />
+        <Route path="/test" element={<TestConnection />} />
         
         {/* Protected routes */}
         <Route
@@ -57,55 +61,22 @@ const AppContent: React.FC = () => {
         />
         
         <Route
-          path="/companies"
-          element={
-            <ProtectedRoute>
-              <MainLayout>
-                <CompanyManagement />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
-          path="/headquarters"
-          element={
-            <ProtectedRoute>
-              <MainLayout>
-                <HeadquartersManagement />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
-          path="/processes"
-          element={
-            <ProtectedRoute>
-              <MainLayout>
-                <ProcessManagement />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
-          path="/job-titles"
-          element={
-            <ProtectedRoute>
-              <MainLayout>
-                <JobTitleManagement />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
           path="/users"
           element={
             <ProtectedRoute>
               <MainLayout>
-                <UserManagement />
+                <UserList />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <ProfilePage />
               </MainLayout>
             </ProtectedRoute>
           }

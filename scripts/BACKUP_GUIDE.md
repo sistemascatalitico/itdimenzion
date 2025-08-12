@@ -2,11 +2,20 @@
 
 ## Overview
 
-The ITDimenzion project includes a comprehensive backup system that creates complete snapshots of your project and database with timestamp-based naming for easy management.
+The ITDimenzion project includes a comprehensive backup system that creates complete ZIP archives of your project and database with standardized timestamp naming (YYYY-MM-DD-hh-mm-ss format) and organized directory structure.
 
 ## Quick Start
 
-### For Complete Project Backup
+### For Complete System Backup (Recommended)
+```bash
+# Navigate to scripts directory
+cd scripts
+
+# Run full backup (includes both project and database)
+backup-full.bat
+```
+
+### For Project Backup Only
 ```bash
 # Navigate to scripts directory
 cd scripts
@@ -24,24 +33,27 @@ cd scripts
 backup-database.bat
 ```
 
-### For Complete System Backup (Recommended)
-```bash
-# Run both scripts for complete backup
-cd scripts
-backup-project.bat
-backup-database.bat
-```
-
 ## Backup Scripts
 
-### 1. Project Backup (`backup-project.bat`)
+### 1. Full System Backup (`backup-full.bat`) - **NEW**
 
 **What it does:**
-- Creates timestamped backup of entire project
+- Executes both project and database backups sequentially
+- Creates comprehensive log file with detailed progress
+- Provides unified interface for complete system backup
+- Validates successful completion of both operations
+- Displays summary of created files with sizes
+
+### 2. Project Backup (`backup-project.bat`)
+
+**What it does:**
+- Creates timestamped ZIP archive of entire project
+- Uses fixed directory structure: `D:\DEV\ITDIMENZION\Backups\Project\`
+- Filename format: `ITDimenzion_Project_YYYY-MM-DD-hh-mm-ss.zip`
+- Uses PowerShell native compression (no external dependencies)
 - Excludes unnecessary files (node_modules, .git, build artifacts)
 - Includes source code, configuration files, documentation
-- Creates restore script for easy recovery
-- Generates detailed backup information file
+- Generates detailed backup information file inside ZIP
 
 **Files included:**
 - ✅ Frontend React application
@@ -59,16 +71,21 @@ backup-database.bat
 - ❌ Log files and temporary files
 - ❌ Previous backups
 
-### 2. Database Backup (`backup-database.bat`)
+### 3. Database Backup (`backup-database.bat`)
 
 **What it does:**
-- Creates complete MySQL database dump
-- Includes schema, data, procedures, triggers
-- Creates schema-only backup for development setup
-- Generates restore script with connection details
+- Creates complete MySQL database dump in ZIP format
+- Uses fixed directory structure: `D:\DEV\ITDIMENZION\Backups\DB\`
+- Filename format: `ITDimenzion_DB_YYYY-MM-DD-hh-mm-ss.zip`
+- Uses PowerShell native compression (no external dependencies)
+- Creates both full backup and schema-only backup
+- Includes comprehensive backup information file
 - Tests database connection before backup
 
-**Backup contents:**
+**Backup contents (all in ZIP archive):**
+- ✅ Complete database dump (`.sql` file)
+- ✅ Schema-only backup for development setup
+- ✅ Detailed backup information file
 - ✅ All tables with complete data
 - ✅ Stored procedures and functions
 - ✅ Triggers and constraints
@@ -77,25 +94,38 @@ backup-database.bat
 
 ## Backup File Structure
 
+**NEW ORGANIZED STRUCTURE:**
 ```
-Backups/
-├── ITDimenzion_Backup_YYYY-MM-DD_HH-MM/
-│   ├── project/                    # Complete project files
-│   ├── BACKUP_INFO.txt             # Backup details and restore instructions
-│   └── RESTORE.bat                 # Automated restore script
-├── ITDimenzion_Database_YYYY-MM-DD_HH-MM.sql    # Full database backup
-├── ITDimenzion_Schema_YYYY-MM-DD_HH-MM.sql      # Schema-only backup
-├── Database_Backup_Info_YYYY-MM-DD_HH-MM.txt    # Database backup info
-└── restore-database_YYYY-MM-DD_HH-MM.bat        # Database restore script
+D:\DEV\ITDIMENZION\Backups\
+├── Project\
+│   ├── ITDimenzion_Project_YYYY-MM-DD-hh-mm-ss.zip
+│   │   ├── project/                          # Complete project files
+│   │   └── BACKUP_INFO.txt                   # Backup details and restore instructions
+│   └── ITDimenzion_Project_YYYY-MM-DD-hh-mm-ss.zip (other dates)
+├── DB\
+│   ├── ITDimenzion_DB_YYYY-MM-DD-hh-mm-ss.zip
+│   │   ├── ITDimenzion_DB_YYYY-MM-DD-hh-mm-ss.sql      # Full database backup
+│   │   ├── ITDimenzion_Schema_YYYY-MM-DD-hh-mm-ss.sql  # Schema-only backup
+│   │   └── Database_Backup_Info_YYYY-MM-DD-hh-mm-ss.txt # Database backup info
+│   └── ITDimenzion_DB_YYYY-MM-DD-hh-mm-ss.zip (other dates)
+└── backup-full-YYYY-MM-DD-hh-mm-ss.log              # Full backup logs
 ```
+
+**Key Improvements:**
+- ✅ **Fixed directory structure** - Always saves to `D:\DEV\ITDIMENZION\Backups\`
+- ✅ **Organized by type** - Separate `Project\` and `DB\` directories
+- ✅ **Standardized naming** - All files use `YYYY-MM-DD-hh-mm-ss` format
+- ✅ **ZIP compression** - All backups are compressed for space efficiency
+- ✅ **No external dependencies** - Uses Windows PowerShell native compression
 
 ## Prerequisites
 
 ### For Project Backup
-- Windows operating system
-- No additional requirements
+- Windows operating system with PowerShell (included in Windows 10+)
+- No additional external tools required
 
 ### For Database Backup
+- Windows operating system with PowerShell (included in Windows 10+)
 - MySQL client installed and accessible from command line
 - Database connection credentials
 - MySQL server running and accessible
@@ -154,8 +184,11 @@ backup-database.bat
 
 ### Complete System Backup
 ```bash
-# Full backup before deployment or major updates
+# Full backup before deployment or major updates (RECOMMENDED)
 cd scripts
+backup-full.bat
+
+# OR run individual scripts
 backup-project.bat
 backup-database.bat
 ```
@@ -164,48 +197,52 @@ backup-database.bat
 
 ### Project Restoration
 
-#### Method 1: Using Restore Script (Recommended)
-1. Navigate to backup folder: `Backups/ITDimenzion_Backup_YYYY-MM-DD_HH-MM/`
-2. Run: `RESTORE.bat`
-3. Follow the on-screen instructions
+#### Method 1: Extract and Setup (Recommended)
+1. Navigate to: `D:\DEV\ITDIMENZION\Backups\Project\`
+2. Extract: `ITDimenzion_Project_YYYY-MM-DD-hh-mm-ss.zip`
+3. Copy extracted `project` folder to desired location
+4. Open `BACKUP_INFO.txt` for detailed restoration instructions
+5. Navigate to project directory
+6. Run: `pnpm install`
+7. Configure environment variables (.env files)
+8. Restore database separately (see Database Restoration)
+9. Run: `pnpm start`
 
-#### Method 2: Manual Restoration
-1. Copy project folder to desired location
-2. Navigate to project directory
-3. Run: `pnpm install`
-4. Configure environment variables
-5. Restore database separately
-6. Run: `pnpm start`
+#### Method 2: Quick Development Setup
+1. Extract project ZIP to temporary location
+2. Copy only necessary files (src/, package.json, etc.)
+3. Run `pnpm install` in target directory
+4. Configure for development environment
 
 ### Database Restoration
 
-#### Method 1: Using Restore Script (Recommended)
-1. Navigate to `Backups/` directory
-2. Run: `restore-database_YYYY-MM-DD_HH-MM.bat`
-3. Enter MySQL credentials when prompted
-
-#### Method 2: Manual Command Line
+#### Method 1: Extract and Restore (Recommended)
+1. Navigate to: `D:\DEV\ITDIMENZION\Backups\DB\`
+2. Extract: `ITDimenzion_DB_YYYY-MM-DD-hh-mm-ss.zip`
+3. Open `Database_Backup_Info_YYYY-MM-DD-hh-mm-ss.txt` for connection details
+4. Use MySQL command line:
 ```bash
 # Full database restore
-mysql -u[username] -p[password] < ITDimenzion_Database_YYYY-MM-DD_HH-MM.sql
+mysql -u[username] -p[password] < ITDimenzion_DB_YYYY-MM-DD-hh-mm-ss.sql
 
 # Restore to specific database
-mysql -u[username] -p[password] [database_name] < ITDimenzion_Database_YYYY-MM-DD_HH-MM.sql
+mysql -u[username] -p[password] [database_name] < ITDimenzion_DB_YYYY-MM-DD-hh-mm-ss.sql
+```
+
+#### Method 2: Schema Only (Development)
+```bash
+# Create new database with schema only
+mysql -u[username] -p[password] [new_database] < ITDimenzion_Schema_YYYY-MM-DD-hh-mm-ss.sql
 ```
 
 #### Method 3: MySQL Workbench
-1. Open MySQL Workbench
-2. Connect to your MySQL server
-3. Go to Server > Data Import
-4. Select "Import from Self-Contained File"
-5. Browse and select the backup SQL file
-6. Click "Start Import"
-
-### Schema-Only Restoration (Development Setup)
-```bash
-# Create new database with schema only
-mysql -u[username] -p[password] [new_database] < ITDimenzion_Schema_YYYY-MM-DD_HH-MM.sql
-```
+1. Extract the database ZIP file first
+2. Open MySQL Workbench
+3. Connect to your MySQL server
+4. Go to Server > Data Import
+5. Select "Import from Self-Contained File"
+6. Browse and select: `ITDimenzion_DB_YYYY-MM-DD-hh-mm-ss.sql`
+7. Click "Start Import"
 
 ## Best Practices
 
@@ -296,8 +333,14 @@ set "DB_USER=your_remote_user"
 ### Cleanup Old Backups
 Create a cleanup script to remove backups older than specified days:
 ```batch
-:: Remove backups older than 30 days
-forfiles /p "Backups" /m "*.*" /d -30 /c "cmd /c del @path"
+:: Remove project backups older than 30 days
+forfiles /p "D:\DEV\ITDIMENZION\Backups\Project" /m "*.zip" /d -30 /c "cmd /c del @path"
+
+:: Remove database backups older than 30 days
+forfiles /p "D:\DEV\ITDIMENZION\Backups\DB" /m "*.zip" /d -30 /c "cmd /c del @path"
+
+:: Remove old logs older than 30 days
+forfiles /p "D:\DEV\ITDIMENZION\Backups" /m "backup-full-*.log" /d -30 /c "cmd /c del @path"
 ```
 
 ### Monitor Backup Success
@@ -308,6 +351,23 @@ forfiles /p "Backups" /m "*.*" /d -30 /c "cmd /c del @path"
 
 ---
 
-**Last Updated**: Generated automatically by backup scripts  
-**Version**: 1.0  
-**Compatible with**: ITDimenzion V3, MySQL 5.7+, Windows 10+
+**Last Updated**: 2025-08-08 (Scripts v2.0 - ZIP format with organized structure)  
+**Version**: 2.0  
+**Compatible with**: ITDimenzion V3+, MySQL 5.7+, Windows 10+ with PowerShell
+
+## Summary of Changes in v2.0
+
+### ✅ **Fixed Issues**
+- **Corrected backup location**: Now saves to `D:\DEV\ITDIMENZION\Backups\` (fixed path)
+- **Standardized date format**: All files use `YYYY-MM-DD-hh-mm-ss` format
+- **Organized structure**: Separate `Project\` and `DB\` directories
+- **ZIP compression**: All backups are now compressed for space efficiency
+- **No external dependencies**: Uses Windows PowerShell native compression
+- **Added full backup script**: New `backup-full.bat` for complete system backup
+
+### 🔧 **Technical Improvements**
+- PowerShell `Compress-Archive` replaces external 7-Zip dependency
+- Unified timestamp function across all scripts
+- Better error handling and cleanup procedures
+- Comprehensive logging for full system backups
+- Improved file organization and naming consistency

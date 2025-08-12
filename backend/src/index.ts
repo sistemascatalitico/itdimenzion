@@ -21,14 +21,24 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// Security middleware - Applied first for maximum protection
-app.use(helmetMiddleware);
-app.use(rateLimitMiddleware);
-app.use(detectSuspiciousActivity);
-app.use(sanitizeInput);
+// Security middleware - Temporarily simplified for debugging
+console.log('🔧 Loading middlewares...');
 
-// CORS configuration
-app.use(cors(securityConfig.cors));
+// Comment out problematic middlewares temporarily
+// app.use(helmetMiddleware);
+// app.use(rateLimitMiddleware);
+// app.use(detectSuspiciousActivity);
+// app.use(sanitizeInput);
+
+console.log('⚠️ Security middlewares temporarily disabled for debugging');
+
+// CORS configuration - Simplified for debugging
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3007'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -36,6 +46,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Cookie and session middleware
 app.use(cookieParser());
+
+// Temporarily comment out session middleware for debugging
+/*
 app.use(
   session({
     secret: securityConfig.session.secret,
@@ -49,6 +62,7 @@ app.use(
     },
   })
 );
+*/
 
 // Compression middleware
 app.use(compression());
@@ -62,29 +76,73 @@ if (process.env.NODE_ENV === 'development') {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    version: '1.0.0',
-  });
+  console.log('🏥 Health check requested');
+  try {
+    res.status(200).json({
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      version: '1.0.0',
+    });
+  } catch (error) {
+    console.error('❌ Health check error:', error);
+    res.status(500).json({ error: 'Health check failed' });
+  }
+});
+
+// Simplified login endpoint for testing
+app.post('/api/auth/simple-login', async (req, res) => {
+  console.log('🔐 Simple login requested:', req.body);
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({
+        error: 'Email and password are required',
+        statusCode: 400
+      });
+    }
+
+    // Test response for now
+    res.json({
+      message: 'Simple login endpoint working',
+      accessToken: 'test-token-12345',
+      user: {
+        email: email,
+        firstName: 'Test',
+        lastName: 'User',
+        role: 'USER'
+      },
+      statusCode: 200
+    });
+  } catch (error) {
+    console.error('❌ Simple login error:', error);
+    res.status(500).json({
+      error: 'Login failed',
+      statusCode: 500,
+      debug: error instanceof Error ? error.message : String(error)
+    });
+  }
 });
 
 // Import routes
 import authRoutes from './routes/auth.routes';
+import enhancedUserRoutes from './routes/enhancedUsers';
 
 // API routes
 const apiPrefix = process.env.API_PREFIX || '/api';
 app.use(`${apiPrefix}/auth`, authRoutes);
+app.use(`${apiPrefix}/users`, enhancedUserRoutes);
 
 // API root endpoint
 app.use(apiPrefix, (req, res) => {
   res.status(200).json({
-    message: ' API is running securely',
+    message: 'ITDimenzion API is running securely',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
     endpoints: {
       auth: `${apiPrefix}/auth`,
+      users: `${apiPrefix}/users`,
       health: '/health',
     },
   });

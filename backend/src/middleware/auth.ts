@@ -6,7 +6,7 @@ import { UserRole } from '@prisma/client';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
-    id: string;
+    documentNumber: string;
     email: string;
     role: UserRole;
     headquartersId: string;
@@ -30,7 +30,7 @@ export const authenticateToken = async (
     }
 
     const decoded = jwt.verify(token, securityConfig.jwt.secret) as {
-      id: string;
+      documentNumber: string;
       email: string;
       role: UserRole;
       headquartersId: string;
@@ -38,9 +38,9 @@ export const authenticateToken = async (
 
     // Verify user still exists and is active
     const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
+      where: { documentNumber: decoded.documentNumber },
       select: {
-        id: true,
+        documentNumber: true,
         email: true,
         role: true,
         status: true,
@@ -56,7 +56,7 @@ export const authenticateToken = async (
     }
 
     req.user = {
-      id: user.id,
+      documentNumber: user.documentNumber,
       email: user.email,
       role: user.role,
       headquartersId: user.headquartersId?.toString() || '0',
@@ -121,8 +121,8 @@ export const requireOwnershipOrRole = (roles: UserRole[]) => {
     }
 
     // For regular users, check if they're accessing their own data
-    const userId = req.params.id;
-    if (userId && userId === req.user.id) {
+    const userId = req.params.id || req.params.documentNumber;
+    if (userId && userId === req.user.documentNumber) {
       return next();
     }
 
@@ -150,11 +150,11 @@ export const requireSameHeadquarters = async (
     return next();
   }
 
-  const targetUserId = req.params.id;
+  const targetUserId = req.params.id || req.params.documentNumber;
   if (targetUserId) {
     try {
       const targetUser = await prisma.user.findUnique({
-        where: { id: targetUserId },
+        where: { documentNumber: targetUserId },
         select: { headquartersId: true },
       });
 

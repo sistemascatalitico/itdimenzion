@@ -10,54 +10,51 @@ echo    ITDimenzion Project Backup Tool
 echo =====================================
 echo.
 
-:: Obtener la fecha y hora actual para nombrar el backup
-for /f "tokens=1-4 delims=/ " %%i in ('date /t') do (
-    set "BACKUP_DATE=%%k-%%j-%%i"
-)
-for /f "tokens=1-2 delims=: " %%i in ('time /t') do (
-    set "BACKUP_TIME=%%i-%%j"
-)
+:: Función para obtener fecha y hora en formato YYYY-MM-DD-hh-mm-ss
+call :GetTimestamp TIMESTAMP
 
-:: Eliminar espacios y formatear la hora correctamente
-set "BACKUP_TIME=%BACKUP_TIME: =0%"
-set "BACKUP_TIME=%BACKUP_TIME::=-%"
-
-:: Definir las rutas
+:: Definir las rutas segun especificacion
 set "PROJECT_ROOT=%~dp0.."
-set "BACKUP_DIR=%PROJECT_ROOT%\Backups"
-set "TEMP_DIR=%PROJECT_ROOT%\Backups\temp_backup"
-set "BACKUP_NAME=ITDimenzion_Backup_%BACKUP_DATE%_%BACKUP_TIME%.zip"
+set "BACKUP_BASE_DIR=%PROJECT_ROOT%\Backups"
+set "BACKUP_DIR=%BACKUP_BASE_DIR%\Project"
+set "TEMP_DIR=%BACKUP_DIR%\temp_backup_%TIMESTAMP%"
+set "BACKUP_NAME=ITDimenzion_Project_%TIMESTAMP%.zip"
 set "BACKUP_PATH=%BACKUP_DIR%\%BACKUP_NAME%"
 
-:: Crear el directorio de backups si no existe
+:: Crear la estructura de directorios si no existe
+echo Verificando estructura de directorios...
+if not exist "%BACKUP_BASE_DIR%" (
+    echo Creando directorio base: %BACKUP_BASE_DIR%
+    mkdir "%BACKUP_BASE_DIR%"
+)
 if not exist "%BACKUP_DIR%" (
-    echo Creando el directorio Backups...
+    echo Creando directorio de proyecto: %BACKUP_DIR%
     mkdir "%BACKUP_DIR%"
 )
 
-echo Ubicaci% BACKUP_PATH%n del backup: %BACKUP_PATH%
+echo Ubicacion del backup: %BACKUP_PATH%
 echo.
 
 :: --- Nuevos pasos para crear el ZIP ---
 :: 1. Crear un directorio temporal para copiar los archivos.
-echo Creando el directorio temporal para la compresi% B%n...
+echo Creando el directorio temporal para la compresion...
 if exist "%TEMP_DIR%" rmdir /s /q "%TEMP_DIR%"
 mkdir "%TEMP_DIR%"
 
 :: 2. Copiar los archivos a la carpeta temporal.
-echo [1/5] Copiando el c%d%digo fuente del proyecto...
-robocopy "%PROJECT_ROOT%" "%TEMP_DIR%\project" /E /XD node_modules .git dist build .next .nuxt target bin obj Backups /XF *.log *.tmp .env .env.local .DS_Store Thumbs.db /NFL /NDL /NJH /NJS /nc /ns /np
+echo [1/5] Copiando el codigo fuente del proyecto...
+robocopy "%PROJECT_ROOT%" "%TEMP_DIR%\project" /E /XD node_modules .git dist build .next .nuxt target bin obj Backups .vscode .idea /XF *.log *.tmp .env .env.local .DS_Store Thumbs.db /NFL /NDL /NJH /NJS /nc /ns /np
 
-:: Copiar archivos de configuraci%n importantes
-echo [2/5] Copiando archivos de configuraci%n...
-if exist "%PROJECT_ROOT%\package.json" copy "%PROJECT_ROOT%\package.json" "%TEMP_DIR%\project\" >nul
-if exist "%PROJECT_ROOT%\pnpm-lock.yaml" copy "%PROJECT_ROOT%\pnpm-lock.yaml" "%TEMP_DIR%\project\" >nul
-if exist "%PROJECT_ROOT%\.gitignore" copy "%PROJECT_ROOT%\.gitignore" "%TEMP_DIR%\project\" >nul
-if exist "%PROJECT_ROOT%\README.md" copy "%PROJECT_ROOT%\README.md" "%TEMP_DIR%\project\" >nul
-if exist "%PROJECT_ROOT%\CLAUDE.md" copy "%PROJECT_ROOT%\CLAUDE.md" "%TEMP_DIR%\project\" >nul
+:: Copiar archivos de configuracion importantes
+echo [2/5] Copiando archivos de configuracion...
+if exist "%PROJECT_ROOT%\package.json" copy "%PROJECT_ROOT%\package.json" "%TEMP_DIR%\project\" >NUL 2>&1
+if exist "%PROJECT_ROOT%\pnpm-lock.yaml" copy "%PROJECT_ROOT%\pnpm-lock.yaml" "%TEMP_DIR%\project\" >NUL 2>&1
+if exist "%PROJECT_ROOT%\.gitignore" copy "%PROJECT_ROOT%\.gitignore" "%TEMP_DIR%\project\" >NUL 2>&1
+if exist "%PROJECT_ROOT%\README.md" copy "%PROJECT_ROOT%\README.md" "%TEMP_DIR%\project\" >NUL 2>&1
+if exist "%PROJECT_ROOT%\CLAUDE.md" copy "%PROJECT_ROOT%\CLAUDE.md" "%TEMP_DIR%\project\" >NUL 2>&1
 
-:: Crear el archivo de informaci%n de backup
-echo [3/5] Creando el archivo de informaci%n del backup...
+:: Crear el archivo de informacion de backup
+echo [3/5] Creando el archivo de informacion del backup...
 (
     echo ITDimenzion Project Backup Information
     echo ======================================
@@ -90,48 +87,49 @@ echo [3/5] Creando el archivo de informaci%n del backup...
     echo.
 ) > "%TEMP_DIR%\BACKUP_INFO.txt"
 
-:: 3. ¡Ahora, comprimir la carpeta temporal en un archivo ZIP!
+:: 3. Comprimir la carpeta temporal en un archivo ZIP usando PowerShell nativo
 echo [4/5] Comprimiendo archivos en un ZIP...
-:: Reemplaza la siguiente l%nea con el comando de tu herramienta de compresi%n.
-:: Ejemplo para 7-Zip:
-"C:\Program Files\7-Zip\7z.exe" a -tzip "%BACKUP_PATH%" "%TEMP_DIR%\*" > nul
-:: Si 7z.exe est% en tu PATH, la l%nea ser%a m%s simple:
-:: 7z.exe a -tzip "%BACKUP_PATH%" "%TEMP_DIR%\*" > nul
-::
-:: Si usas WinRAR:
-:: "C:\Program Files\WinRAR\Rar.exe" a -ep1 "%BACKUP_PATH%" "%TEMP_DIR%\*"
+powershell -Command "& { try { Compress-Archive -Path '%TEMP_DIR%\*' -DestinationPath '%BACKUP_PATH%' -CompressionLevel Optimal -Force; exit 0 } catch { Write-Error $_.Exception.Message; exit 1 } }"
+
+if %errorlevel% neq 0 (
+    echo.
+    echo ERROR: Fallo al crear el archivo ZIP usando PowerShell.
+    echo Verifique que PowerShell esté disponible y tenga permisos necesarios.
+    echo.
+    goto :cleanup_and_exit
+)
 
 :: 4. Eliminar el directorio temporal
 echo Limpiando archivos temporales...
 rmdir /s /q "%TEMP_DIR%"
 
-:: 5. Verificar que el archivo ZIP se cre% correctamente
+:: 5. Verificar que el archivo ZIP se creo correctamente
 if not exist "%BACKUP_PATH%" (
     echo.
     echo ERROR: Fallo al crear el archivo ZIP.
-    echo Aseg%rate de que 7-Zip o tu herramienta de compresi%n est% instalada y su ruta es correcta.
+    echo Asegurate de que PowerShell este disponible y tenga permisos necesarios.
     echo.
     pause
     exit /b 1
 )
 
-:: Obtener el tama%o del ZIP
-echo [5/5] Calculando el tama%o del backup...
+:: Obtener el tamano del ZIP
+echo [5/5] Calculando el tamano del backup...
 for %%F in ("%BACKUP_PATH%") do set "BACKUP_SIZE=%%~zF"
 
-:: Creando el script de restauraci%n (ya no es necesario en el ZIP)
+:: Creando el script de restauracion (ya no es necesario en el ZIP)
 :: He quitado esta parte para simplificar, ya que ahora se extrae el ZIP.
 
-:: Mensaje de finalizaci%n
+:: Mensaje de finalizacion
 echo.
 echo =====================================
 echo    BACKUP COMPLETADO EXITOSAMENTE!
 echo =====================================
 echo.
 echo Detalles del Backup:
-echo - Ubicaci%n: %BACKUP_PATH%
-echo - Tama%o: %BACKUP_SIZE% bytes
-echo - Archivos incluidos: C%d%digo, configuraciones, documentaci%n
+echo - Ubicacion: %BACKUP_PATH%
+echo - Tamano: %BACKUP_SIZE% bytes
+echo - Archivos incluidos: Codigo, configuraciones, documentacion
 echo.
 echo Para restaurar este backup:
 echo 1. Navega a: %BACKUP_DIR%
@@ -145,3 +143,27 @@ echo.
 explorer "%BACKUP_DIR%"
 
 pause
+goto :eof
+
+:cleanup_and_exit
+:: Limpieza de archivos temporales en caso de error
+if exist "%TEMP_DIR%" (
+    echo Limpiando archivos temporales...
+    rmdir /s /q "%TEMP_DIR%"
+)
+pause
+exit /b 1
+
+:GetTimestamp
+:: Función para obtener timestamp en formato YYYY-MM-DD-hh-mm-ss
+for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /format:list') do (
+    if not "%%I"=="" set "dt=%%I"
+)
+set "YEAR=%dt:~0,4%"
+set "MONTH=%dt:~4,2%"
+set "DAY=%dt:~6,2%"
+set "HOUR=%dt:~8,2%"
+set "MINUTE=%dt:~10,2%"
+set "SECOND=%dt:~12,2%"
+set "%1=%YEAR%-%MONTH%-%DAY%-%HOUR%-%MINUTE%-%SECOND%"
+goto :eof

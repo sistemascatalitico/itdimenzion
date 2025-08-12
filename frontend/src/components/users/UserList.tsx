@@ -13,311 +13,298 @@ import {
   TableRow,
   Paper,
   IconButton,
-  Chip,
-  TextField,
-  InputAdornment,
+  Tooltip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Alert,
-  Tooltip,
+  Chip,
   Avatar,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
-  FormControl,
-  InputLabel,
-  Select,
-  Divider,
-  CircularProgress
+  CircularProgress,
+  Alert,
+  Fab,
+  Checkbox,
+  FormGroup,
+  FormControlLabel,
+  Dialog as MuiDialog,
+  DialogTitle as MuiDialogTitle,
+  DialogContent as MuiDialogContent,
+  DialogActions as MuiDialogActions,
+  Select as MuiSelect,
+  MenuItem as MuiMenuItem,
+  TextField,
 } from '@mui/material';
-import Grid from '@mui/material/Unstable_Grid2';
 import {
   Add as AddIcon,
-  Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  People as PeopleIcon,
-  MoreVert as MoreVertIcon,
   Visibility as ViewIcon,
-  Block as BlockIcon,
-  CheckCircle as CheckCircleIcon,
-  Business as BusinessIcon,
-  Badge as BadgeIcon,
-  Phone as PhoneIcon,
-  Email as EmailIcon,
-  Work as WorkIcon,
-  FilterList as FilterIcon,
-  Person as PersonIcon,
-  Warning as WarningIcon,
-  Close as CloseIcon
+  Refresh as RefreshIcon,
+  Build as WrenchIcon,
+  DoneAll as DoneAllIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
-import { usePermissions } from '../../hooks/usePermissions';
-import UserForm from './UserForm';
 import api from '../../config/api';
+import UserForm from './UserForm';
 
-// Types
 interface User {
   documentNumber: string;
-  documentType: 'CEDULA' | 'TARJETA_IDENTIDAD' | 'CEDULA_EXTRANJERIA';
+  documentType: string;
   firstName: string;
   lastName: string;
   email: string;
-  phone?: string;
-  username: string;
-  role: 'SUPER_ADMIN' | 'ADMIN' | 'SUPERVISOR' | 'USER';
+  phone?: string | null;
+  username: string | null;
+  role: string;
   status: 'ACTIVE' | 'INACTIVE';
+  createdAt: string;
+  updatedAt: string;
+  lastLogin?: string;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  residenceCountry?: string | null;
+  residenceState?: string | null;
+  residenceCity?: string | null;
+  commentary?: string | null;
   company?: {
     id: number;
     name: string;
     nit: string;
-  };
+  } | null;
   headquarters?: {
     id: number;
     name: string;
     code: string;
-  };
+  } | null;
   jobTitle?: {
     id: number;
     name: string;
     code: string;
-    process: {
+    process?: {
       name: string;
     };
-  };
-  createdAt: string;
-  updatedAt: string;
-  lastLogin?: string;
+  } | null;
 }
 
-interface Company {
-  id: number;
-  name: string;
-  nit: string;
+type ColumnKey =
+  | 'usuario'
+  | 'documento'
+  | 'email'
+  | 'telefono'
+  | 'rol'
+  | 'empresa'
+  | 'estado'
+  | 'sede'
+  | 'cargo'
+  | 'ultimoAcceso'
+  | 'creado'
+  | 'actualizado'
+  | 'pais'
+  | 'departamento'
+  | 'ciudad'
+  | 'direccion1'
+  | 'direccion2'
+  | 'comentario'
+  | 'acciones';
+
+interface ColumnConfig {
+  key: ColumnKey;
+  label: string;
+  defaultVisible: boolean;
 }
 
-interface UserFormData {
-  documentNumber: string;
-  documentType: 'CEDULA' | 'TARJETA_IDENTIDAD' | 'CEDULA_EXTRANJERIA';
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  username: string;
-  password?: string;
-  confirmPassword?: string;
-  role: 'ADMIN' | 'SUPERVISOR' | 'USER';
-  companyId: number;
-  headquartersId: number;
-  jobTitleId: number;
-}
+const COLUMN_OPTIONS: ColumnConfig[] = [
+  { key: 'usuario', label: 'Usuario', defaultVisible: true },
+  { key: 'documento', label: 'Documento', defaultVisible: true },
+  { key: 'email', label: 'Email', defaultVisible: true },
+  { key: 'telefono', label: 'Teléfono', defaultVisible: true },
+  { key: 'rol', label: 'Rol', defaultVisible: true },
+  { key: 'empresa', label: 'Empresa', defaultVisible: true },
+  { key: 'estado', label: 'Estado', defaultVisible: true },
+  { key: 'sede', label: 'Sede', defaultVisible: false },
+  { key: 'cargo', label: 'Cargo', defaultVisible: false },
+  { key: 'ultimoAcceso', label: 'Último acceso', defaultVisible: false },
+  { key: 'creado', label: 'Creado', defaultVisible: false },
+  { key: 'actualizado', label: 'Actualizado', defaultVisible: false },
+  { key: 'pais', label: 'País', defaultVisible: false },
+  { key: 'departamento', label: 'Departamento/Estado', defaultVisible: false },
+  { key: 'ciudad', label: 'Ciudad', defaultVisible: false },
+  { key: 'direccion1', label: 'Dirección 1', defaultVisible: false },
+  { key: 'direccion2', label: 'Dirección 2', defaultVisible: false },
+  { key: 'comentario', label: 'Comentario', defaultVisible: false },
+  { key: 'acciones', label: 'Acciones', defaultVisible: true },
+];
+
+const VISIBLE_COLUMNS_STORAGE_KEY = 'itd_userlist_columns';
 
 const UserList: React.FC = () => {
   const { user: currentUser } = useAuth();
-  const {
-    hasPermission,
-    canManageUser,
-    canEditUser,
-    canDeleteUser,
-    getManagedRoles,
-    userPermissions,
-    loading: permissionsLoading,
-    error: permissionsError
-  } = usePermissions();
-
   const [users, setUsers] = useState<User[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCompany, setSelectedCompany] = useState<number | ''>('');
-  const [selectedRole, setSelectedRole] = useState<string | ''>('');
-  const [selectedStatus, setSelectedStatus] = useState<string | ''>('');
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<User | null>(null);
-  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  
-  // Estados para controlar el modal
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create');
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [columnsVisibility, setColumnsVisibility] = useState<Record<ColumnKey, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem(VISIBLE_COLUMNS_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    const initial: Record<ColumnKey, boolean> = COLUMN_OPTIONS.reduce((acc, c) => {
+      acc[c.key] = c.defaultVisible;
+      return acc;
+    }, {} as Record<ColumnKey, boolean>);
+    return initial;
+  });
+  const [columnsDialogOpen, setColumnsDialogOpen] = useState(false);
+  const [bulkRole, setBulkRole] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadUsers = useCallback(async (params?: { search?: string }) => {
     try {
       setLoading(true);
-      await Promise.all([loadUsers(), loadCompanies()]);
-    } catch (error) {
-      console.error('Error loading data:', error);
+      const response = await api.get('/users', { params });
+      const list = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.users)
+          ? response.data.users
+          : [];
+      setUsers(list);
+    } catch (error: any) {
+      console.error('Error loading users:', error);
+      setMessage({ 
+        type: 'error', 
+        text: error.response?.data?.message || 'Error al cargar usuarios' 
+      });
     } finally {
       setLoading(false);
     }
-  };
-
-  const loadUsers = useCallback(async () => {
-    try {
-      setError(null);
-      const response = await api.get('/users');
-      
-      // Filter users based on current user's permissions
-      const filteredUsers = response.data.users?.filter((user: User) => 
-        canManageUser(user.role)
-      ) || [];
-      
-      setUsers(filteredUsers);
-    } catch (error: any) {
-      console.error('Error loading users:', error);
-      setError(
-        error.response?.data?.message || 
-        error.message || 
-        'Error al cargar los usuarios. Verifique su conexión.'
-      );
-      // Fallback to empty array for now
-      setUsers([]);
-    }
-  }, [canManageUser]);  // Simplified dependencies
-
-  const loadCompanies = async () => {
-    try {
-      const response = await api.get('/companies');
-      setCompanies(response.data.companies || []);
-    } catch (error: any) {
-      console.error('Error loading companies:', error);
-      // Fallback to empty array
-      setCompanies([]);
-    }
-  };
-
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, user: User) => {
-    setMenuAnchorEl(event.currentTarget);
-    setSelectedUser(user);
-  };
-
-  const handleMenuClose = () => {
-    setMenuAnchorEl(null);
-    setSelectedUser(null);
-  };
-
-  const handleDeleteClick = (user: User) => {
-    if (!canDeleteUser(user.role)) {
-      setError('No tienes permisos para eliminar este usuario');
-      return;
-    }
-    setUserToDelete(user);
-    setDeleteDialogOpen(true);
-    handleMenuClose();
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (userToDelete) {
-      try {
-        await handleDelete(userToDelete);
-        setDeleteDialogOpen(false);
-        setUserToDelete(null);
-      } catch (error) {
-        console.error('Error deleting user:', error);
-      }
-    }
-  };
-
-  const handleToggleStatusClick = (user: User) => {
-    if (!canEditUser(user.role)) {
-      setError('No tienes permisos para cambiar el estado de este usuario');
-      return;
-    }
-    handleToggleStatus(user);
-    handleMenuClose();
-  };
-
-  // Funciones para manejar el modal - optimizadas con useCallback
-  const handleOpenModal = useCallback((mode: 'create' | 'edit' | 'view', user?: User) => {
-    // Previene el warning de aria-hidden moviendo el foco lejos de elementos activos
-    try { (document.activeElement as HTMLElement)?.blur?.(); } catch {}
-    setModalMode(mode);
-    setSelectedUser(user || null);
-    setModalOpen(true);
   }, []);
 
-  // Handlers estables usando data attributes para evitar re-renders
-  const handleViewClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
-    const documentNumber = event.currentTarget.getAttribute('data-document-number');
-    const user = users.find(u => u.documentNumber === documentNumber);
-    if (user) handleOpenModal('view', user);
-  }, [users, handleOpenModal]);
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
-  const handleEditClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
-    const documentNumber = event.currentTarget.getAttribute('data-document-number');
-    const user = users.find(u => u.documentNumber === documentNumber);
-    if (user) handleOpenModal('edit', user);
-  }, [users, handleOpenModal]);
+  const handleOpenModal = useCallback((user?: User, edit = false) => {
+    setSelectedUser(user || null);
+    setIsEditMode(edit);
+    setModalOpen(true);
+    // Blur any focused element to prevent aria-hidden warnings
+    document.activeElement?.blur();
+  }, []);
 
-  const handleMenuClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
-    const documentNumber = event.currentTarget.getAttribute('data-document-number');
-    const user = users.find(u => u.documentNumber === documentNumber);
-    if (user) handleMenuOpen(event, user);
-  }, [users]);
-
-  const handleCloseModal = useCallback((shouldReload = false) => {
+  const handleCloseModal = useCallback(() => {
+    // Evita que quede foco en elementos dentro del diálogo al cerrar
+    try { (document.activeElement as HTMLElement | null)?.blur?.(); } catch {}
     setModalOpen(false);
     setSelectedUser(null);
-    // Solo recargar si se solicita explícitamente
-    if (shouldReload) {
-      loadUsers();
-    }
-  }, [loadUsers]);  // Now safe with memoized loadUsers
+    setIsEditMode(false);
+  }, []);
 
-  // Funciones para operaciones de usuarios
-  const handleDelete = async (user: User) => {
+  const handleUserSaved = useCallback(() => {
+    handleCloseModal();
+    loadUsers();
+    setMessage({ type: 'success', text: isEditMode ? 'Usuario actualizado exitosamente' : 'Usuario creado exitosamente' });
+  }, [handleCloseModal, loadUsers, isEditMode]);
+
+  const handleDeleteUser = useCallback(async (userId: string) => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
+      return;
+    }
+
     try {
-      await api.delete(`/users/${user.documentNumber}`);
-      setError(null);
-      await loadUsers(); // Recargar la lista
+      await api.delete(`/users/${userId}`);
+      loadUsers();
+      setMessage({ type: 'success', text: 'Usuario eliminado exitosamente' });
     } catch (error: any) {
       console.error('Error deleting user:', error);
-      setError(error.response?.data?.message || 'Error al eliminar el usuario');
-    }
-  };
-
-  const handleToggleStatus = async (user: User) => {
-    try {
-      const newStatus = user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-      await api.patch(`/users/${user.documentNumber}/status`, {
-        status: newStatus
+      setMessage({ 
+        type: 'error', 
+        text: error.response?.data?.message || 'Error al eliminar usuario' 
       });
-      setError(null);
-      await loadUsers(); // Recargar la lista
+    }
+  }, [loadUsers]);
+
+  const allSelectedOnPage = useMemo(() => {
+    if (users.length === 0) return false;
+    return users.every(u => selectedIds.has(u.documentNumber));
+  }, [users, selectedIds]);
+
+  const someSelectedOnPage = useMemo(() => {
+    return users.some(u => selectedIds.has(u.documentNumber)) && !allSelectedOnPage;
+  }, [users, selectedIds, allSelectedOnPage]);
+
+  const toggleSelectAllOnPage = () => {
+    const next = new Set(selectedIds);
+    if (allSelectedOnPage) {
+      users.forEach(u => next.delete(u.documentNumber));
+    } else {
+      users.forEach(u => next.add(u.documentNumber));
+    }
+    setSelectedIds(next);
+  };
+
+  const toggleSelectOne = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelectedIds(next);
+  };
+
+  const handleToggleColumn = (key: ColumnKey) => {
+    const next = { ...columnsVisibility, [key]: !columnsVisibility[key] };
+    setColumnsVisibility(next);
+    try { localStorage.setItem(VISIBLE_COLUMNS_STORAGE_KEY, JSON.stringify(next)); } catch {}
+  };
+
+  const visible = (key: ColumnKey) => columnsVisibility[key];
+
+  const openColumnsDialog = () => {
+    try { (document.activeElement as HTMLElement | null)?.blur?.(); } catch {}
+    setColumnsDialogOpen(true);
+  };
+
+  const runBulk = async (action: 'activate' | 'deactivate' | 'delete' | 'role') => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setMessage(null);
+    try {
+      const promises: Promise<any>[] = [];
+      if (action === 'delete') {
+        ids.forEach(id => {
+          if (id !== currentUser?.documentNumber) {
+            promises.push(api.delete(`/users/${id}`));
+          }
+        });
+      } else if (action === 'activate' || action === 'deactivate') {
+        const desired = action === 'activate' ? 'ACTIVE' : 'INACTIVE';
+        ids.forEach(id => {
+          const u = users.find(x => x.documentNumber === id);
+          if (u && u.status !== desired) {
+            // backend solo expone PATCH que alterna; solo llamamos si hay que cambiar
+            promises.push(api.patch(`/users/${id}/status`));
+          }
+        });
+      } else if (action === 'role') {
+        if (!bulkRole) return;
+        ids.forEach(id => promises.push(api.put(`/users/${id}`, { role: bulkRole })));
+      }
+      const results = await Promise.allSettled(promises);
+      const failed = results.filter(r => r.status === 'rejected').length;
+      await loadUsers();
+      setSelectedIds(new Set());
+      if (failed === 0) {
+        setMessage({ type: 'success', text: 'Acción masiva aplicada correctamente' });
+      } else {
+        setMessage({ type: 'error', text: `Acción aplicada con ${failed} errores` });
+      }
     } catch (error: any) {
-      console.error('Error toggling user status:', error);
-      setError(error.response?.data?.message || 'Error al cambiar el estado del usuario');
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Error en acción masiva' });
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'success';
-      case 'INACTIVE':
-        return 'default';
-      default:
-        return 'default';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'Activo';
-      case 'INACTIVE':
-        return 'Inactivo';
-      default:
-        return status;
-    }
+  const handleSearch = () => {
+    loadUsers({ search: searchTerm.trim() || undefined });
   };
 
   const getRoleColor = (role: string) => {
@@ -329,584 +316,474 @@ const UserList: React.FC = () => {
       case 'SUPERVISOR':
         return 'info';
       case 'USER':
-        return 'primary';
+        return 'success';
       default:
         return 'default';
     }
   };
 
-  const getRoleLabel = (role: string) => {
-    switch (role) {
-      case 'SUPER_ADMIN':
-        return 'Super Admin';
-      case 'ADMIN':
-        return 'Administrador';
-      case 'SUPERVISOR':
-        return 'Supervisor';
-      case 'USER':
-        return 'Usuario';
-      default:
-        return role;
-    }
+  const getStatusColor = (status: string) => {
+    return status === 'ACTIVE' ? 'success' : 'error';
   };
 
-  const getDocumentTypeLabel = (type: string) => {
-    switch (type) {
-      case 'CEDULA':
-        return 'CC';
-      case 'TARJETA_IDENTIDAD':
-        return 'TI';
-      case 'CEDULA_EXTRANJERIA':
-        return 'CE';
-      default:
-        return type;
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-CO', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const formatDateTime = (dateString?: string) => {
-    if (!dateString) return 'Nunca';
-    const date = new Date(dateString);
-    return date.toLocaleString('es-CO', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-  };
-
-  const filteredUsers = users.filter(user => {
-    // Check if current user can manage this user
-    if (!canManageUser(user.role)) {
-      return false;
-    }
-
-    const matchesSearch = 
-      user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.documentNumber.includes(searchTerm) ||
-      (user.company?.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (user.jobTitle?.name.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesCompany = selectedCompany === '' || user.company?.id === selectedCompany;
-    const matchesRole = selectedRole === '' || user.role === selectedRole;
-    const matchesStatus = selectedStatus === '' || user.status === selectedStatus;
-    
-    return matchesSearch && matchesCompany && matchesRole && matchesStatus;
-  });
-
-  // Get available roles based on current user's permissions
-  const availableRoles = getManagedRoles();
-  const roleOptions = [
-    { value: '', label: 'Todos los roles' },
-    ...availableRoles.map(role => ({
-      value: role,
-      label: getRoleLabel(role)
-    }))
-  ];
-
-  // Memoizar initialData para prevenir re-renders infinitos
-  const initialData = useMemo(() => {
-    if (!selectedUser) return undefined;
-    
-    return {
-      documentNumber: selectedUser.documentNumber,
-      documentType: selectedUser.documentType,
-      firstName: selectedUser.firstName,
-      lastName: selectedUser.lastName,
-      email: selectedUser.email,
-      phone: selectedUser.phone || '',
-      username: selectedUser.username,
-      role: selectedUser.role === 'SUPER_ADMIN' ? 'ADMIN' : selectedUser.role,
-      companyId: selectedUser.company?.id?.toString() || '',
-      headquartersId: selectedUser.headquarters?.id?.toString() || '',
-      jobTitleId: selectedUser.jobTitle?.id?.toString() || ''
-    };
-  }, [selectedUser]);
-
-  // UserModal component
-  const UserModal = () => (
-    <Dialog
-      open={modalOpen}
-      onClose={(event, reason) => {
-        if (reason === 'backdropClick') return;
-        handleCloseModal(false);
-      }}
-      maxWidth="md"          // Tamaño del modal: xs, sm, md, lg, xl
-      fullWidth              // Usa todo el ancho del maxWidth
-      disableAutoFocus        // Previene auto-focus que puede causar problemas
-      disableEnforceFocus     // Previene enforce focus que puede interferir
-      disableEscapeKeyDown
-      keepMounted
-      PaperProps={{
-        sx: {
-          borderRadius: 2,   // Bordes redondeados
-          minHeight: '60vh', // Altura mínima
-        }
-      }}
-    >
-      <DialogTitle sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        pb: 1 
-      }}>
-        {modalMode === 'create' && 'Nuevo Usuario'}
-        {modalMode === 'edit' && 'Editar Usuario'}
-        {modalMode === 'view' && 'Ver Usuario'}
-        <IconButton 
-          onClick={() => handleCloseModal(false)}
-          size="small"
-          sx={{ color: 'grey.500' }}
-        >
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-      
-      <DialogContent dividers>
-        <UserForm
-          initialData={initialData}
-          onCancel={() => handleCloseModal(false)}
-          isEditMode={modalMode === 'edit'}
-        />
-      </DialogContent>
-    </Dialog>
-  );
-
-  // Show loading if permissions are still loading
-  if (permissionsLoading) {
+  if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '60vh',
+        }}
+      >
         <CircularProgress />
-        <Typography sx={{ ml: 2 }}>Cargando permisos...</Typography>
-      </Box>
-    );
-  }
-
-  // Show error if no permission to view users
-  if (!hasPermission('users_read')) {
-    return (
-      <Box>
-        <Alert severity="error" sx={{ mb: 2 }}>
-          <Box display="flex" alignItems="center">
-            <WarningIcon sx={{ mr: 1 }} />
-            No tienes permisos para ver la lista de usuarios
-          </Box>
-        </Alert>
       </Box>
     );
   }
 
   return (
+    <Box
+      sx={{
+        p: 0,
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        minHeight: '100vh',
+      }}
+    >
+      <Card
+        sx={{
+          borderRadius: 3,
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          overflow: 'hidden',
+          mx: 0,
+          ml: 0,
+        }}
+      >
+        <Box
+          sx={{
+            background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E6B 100%)',
+            p: { xs: 2, md: 3 },
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            color: 'white',
+          }}
+        >
     <Box>
-      {/* Error Display */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
-
-      {/* Permissions Error */}
-      {permissionsError && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          Error de permisos: {permissionsError}
-        </Alert>
-      )}
-
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <PeopleIcon sx={{ mr: 2, color: 'primary.main' }} />
-          <Typography variant="h4" component="h1">
+            <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
             Gestión de Usuarios
           </Typography>
-          {currentUser && (
-            <Chip 
-              label={`Rol: ${getRoleLabel(currentUser.role)}`}
-              size="small"
-              color="primary"
-              sx={{ ml: 2 }}
-            />
-          )}
+            <Typography variant="body1" sx={{ opacity: 0.9 }}>
+              Administra los usuarios del sistema
+            </Typography>
         </Box>
-        {hasPermission('users_create') && (
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => handleOpenModal('create')}
-            sx={{ borderRadius: 2 }}
+            onClick={() => handleOpenModal()}
+            sx={{
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              color: 'white',
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.3)',
+              },
+            }}
           >
             Nuevo Usuario
           </Button>
-        )}
       </Box>
 
-      {/* Search and Filters */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Grid container spacing={3} alignItems="center">
-            <Grid xs={12} md={4}>
-              <TextField
-                fullWidth
-                placeholder="Buscar por nombre, email, documento o empresa..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            <Grid xs={12} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>Empresa</InputLabel>
-                <Select
-                  value={selectedCompany}
-                  onChange={(e) => setSelectedCompany(e.target.value as number | '')}
-                  label="Empresa"
-                  startAdornment={<BusinessIcon sx={{ mr: 1, fontSize: 20 }} />}
-                >
-                  <MenuItem value="">Todas las empresas</MenuItem>
-                  {companies.map((company) => (
-                    <MenuItem key={company.id} value={company.id}>
-                      {company.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid xs={12} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>Rol</InputLabel>
-                <Select
-                  value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value as string)}
-                  label="Rol"
-                >
-                  {roleOptions.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid xs={12} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>Estado</InputLabel>
-                <Select
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value as string)}
-                  label="Estado"
-                >
-                  <MenuItem value="">Todos los estados</MenuItem>
-                  <MenuItem value="ACTIVE">Activo</MenuItem>
-                  <MenuItem value="INACTIVE">Inactivo</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid xs={12} md={2}>
-              <Typography variant="body2" color="text.secondary" align="center">
-                {filteredUsers.length} usuario{filteredUsers.length !== 1 ? 's' : ''}
-              </Typography>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+        <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+          {message && (
+            <Alert 
+              severity={message.type} 
+              sx={{ mb: 3 }}
+              onClose={() => setMessage(null)}
+            >
+              {message.text}
+            </Alert>
+          )}
 
-      {/* Users Table */}
-      <Card>
-        <TableContainer>
+          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" sx={{ color: '#333', fontWeight: 600 }}>
+              Lista de Usuarios ({users.length})
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              {selectedIds.size > 0 && (
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mr: 1 }}>
+                  <Button size="small" variant="contained" color="success" onClick={() => runBulk('activate')}>Activar</Button>
+                  <Button size="small" variant="outlined" color="warning" onClick={() => runBulk('deactivate')}>Desactivar</Button>
+                  <MuiSelect
+                    size="small"
+                    value={bulkRole}
+                    onChange={(e) => setBulkRole(e.target.value)}
+                    displayEmpty
+                    sx={{ minWidth: 160, backgroundColor: '#fff' }}
+                    MenuProps={{ disablePortal: true }}
+                  >
+                    <MuiMenuItem value=""><em>Cambiar rol…</em></MuiMenuItem>
+                    <MuiMenuItem value="SUPER_ADMIN">Super Admin</MuiMenuItem>
+                    <MuiMenuItem value="ADMIN">Admin</MuiMenuItem>
+                    <MuiMenuItem value="SUPERVISOR">Supervisor</MuiMenuItem>
+                    <MuiMenuItem value="USER">User</MuiMenuItem>
+                  </MuiSelect>
+                  <Button size="small" variant="outlined" startIcon={<DoneAllIcon />} onClick={() => runBulk('role')}>Aplicar</Button>
+                  <Button size="small" color="error" variant="outlined" onClick={() => runBulk('delete')}>Eliminar</Button>
+                </Box>
+              )}
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mr: 1 }}>
+                <TextField
+                  size="small"
+                  placeholder="Buscar usuario..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+                  sx={{ backgroundColor: '#fff', borderRadius: 1, minWidth: 220 }}
+                />
+                <Button size="small" variant="outlined" onClick={handleSearch}>Buscar</Button>
+              </Box>
+              <Tooltip title="Columnas visibles">
+                <IconButton onClick={openColumnsDialog} sx={{ color: '#FF6B6B' }}>
+                  <WrenchIcon />
+                </IconButton>
+              </Tooltip>
+              <Button
+                startIcon={<RefreshIcon />}
+                onClick={loadUsers}
+                variant="outlined"
+                sx={{
+                  borderColor: '#FF6B6B',
+                  color: '#FF6B6B',
+                  '&:hover': {
+                    borderColor: '#FF5A5A',
+                    backgroundColor: 'rgba(255, 107, 107, 0.04)',
+                  },
+                }}
+              >
+                Actualizar
+              </Button>
+            </Box>
+          </Box>
+
+          <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto', overflowY: 'hidden' }}>
           <Table>
             <TableHead>
-              <TableRow>
-                <TableCell>Usuario</TableCell>
-                <TableCell>Documento</TableCell>
-                <TableCell>Contacto</TableCell>
-                <TableCell>Empresa/Cargo</TableCell>
-                <TableCell>Rol</TableCell>
-                <TableCell>Estado</TableCell>
-                <TableCell>Último Acceso</TableCell>
-                <TableCell>Acciones</TableCell>
+                <TableRow sx={{ backgroundColor: '#f8f9fa' }}>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      indeterminate={someSelectedOnPage}
+                      checked={allSelectedOnPage}
+                      onChange={toggleSelectAllOnPage}
+                    />
+                  </TableCell>
+                  {visible('usuario') && <TableCell sx={{ fontWeight: 600 }}>Usuario</TableCell>}
+                  {visible('documento') && <TableCell sx={{ fontWeight: 600 }}>Documento</TableCell>}
+                  {visible('email') && <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>}
+                  {visible('telefono') && <TableCell sx={{ fontWeight: 600 }}>Teléfono</TableCell>}
+                  {visible('rol') && <TableCell sx={{ fontWeight: 600 }}>Rol</TableCell>}
+                  {visible('empresa') && <TableCell sx={{ fontWeight: 600 }}>Empresa</TableCell>}
+                  {visible('sede') && <TableCell sx={{ fontWeight: 600 }}>Sede</TableCell>}
+                  {visible('cargo') && <TableCell sx={{ fontWeight: 600 }}>Cargo</TableCell>}
+                  {visible('pais') && <TableCell sx={{ fontWeight: 600 }}>País</TableCell>}
+                  {visible('departamento') && <TableCell sx={{ fontWeight: 600 }}>Departamento/Estado</TableCell>}
+                  {visible('ciudad') && <TableCell sx={{ fontWeight: 600 }}>Ciudad</TableCell>}
+                  {visible('direccion1') && <TableCell sx={{ fontWeight: 600 }}>Dirección 1</TableCell>}
+                  {visible('direccion2') && <TableCell sx={{ fontWeight: 600 }}>Dirección 2</TableCell>}
+                  {visible('comentario') && <TableCell sx={{ fontWeight: 600 }}>Comentario</TableCell>}
+                  {visible('estado') && <TableCell sx={{ fontWeight: 600 }}>Estado</TableCell>}
+                  {visible('ultimoAcceso') && <TableCell sx={{ fontWeight: 600 }}>Último acceso</TableCell>}
+                  {visible('creado') && <TableCell sx={{ fontWeight: 600 }}>Creado</TableCell>}
+                  {visible('actualizado') && <TableCell sx={{ fontWeight: 600 }}>Actualizado</TableCell>}
+                  {visible('acciones') && <TableCell sx={{ fontWeight: 600 }}>Acciones</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    Cargando usuarios...
-                  </TableCell>
-                </TableRow>
-              ) : filteredUsers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    {searchTerm || selectedCompany || selectedRole || selectedStatus ? 
-                      'No se encontraron usuarios' : 'No hay usuarios registrados'}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredUsers.map((user) => (
-                  <TableRow key={user.documentNumber}>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Avatar sx={{ 
-                          mr: 2, 
-                          bgcolor: 'primary.light',
-                          color: 'primary.contrastText'
-                        }}>
-                          {getInitials(user.firstName, user.lastName)}
-                        </Avatar>
-                        <Box>
-                          <Typography variant="subtitle2" fontWeight="bold">
-                            {user.firstName} {user.lastName}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            @{user.username}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </TableCell>
-
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <BadgeIcon sx={{ fontSize: 16, mr: 0.5, color: 'text.secondary' }} />
-                        <Box>
-                          <Typography variant="body2" fontWeight="medium">
-                            {getDocumentTypeLabel(user.documentType)} {user.documentNumber}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </TableCell>
-
-                    <TableCell>
-                      <Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                          <EmailIcon sx={{ fontSize: 14, mr: 0.5, color: 'text.secondary' }} />
-                          <Typography variant="body2">
-                            {user.email}
-                          </Typography>
-                        </Box>
-                        {user.phone && (
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <PhoneIcon sx={{ fontSize: 14, mr: 0.5, color: 'text.secondary' }} />
-                            <Typography variant="caption" color="text.secondary">
-                              {user.phone}
-                            </Typography>
-                          </Box>
-                        )}
-                      </Box>
-                    </TableCell>
-
-                    <TableCell>
-                      <Box>
-                        {user.company && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                            <BusinessIcon sx={{ fontSize: 14, mr: 0.5, color: 'text.secondary' }} />
-                            <Typography variant="body2" fontWeight="medium">
-                              {user.company.name}
-                            </Typography>
-                          </Box>
-                        )}
-                        {user.jobTitle && (
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <WorkIcon sx={{ fontSize: 14, mr: 0.5, color: 'text.secondary' }} />
-                            <Box>
-                              <Typography variant="caption" color="text.secondary">
-                                {user.jobTitle.name}
-                              </Typography>
-                              <Typography variant="caption" display="block" color="text.secondary">
-                                {user.jobTitle.process.name}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        )}
-                        {user.headquarters && (
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            Sede: {user.headquarters.name}
-                          </Typography>
-                        )}
-                      </Box>
-                    </TableCell>
-
-                    <TableCell>
-                      <Chip
-                        label={getRoleLabel(user.role)}
-                        color={getRoleColor(user.role) as any}
-                        size="small"
+                {users.map((user) => (
+                  <TableRow key={user.documentNumber} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        checked={selectedIds.has(user.documentNumber)}
+                        onChange={() => toggleSelectOne(user.documentNumber)}
                       />
                     </TableCell>
-
-                    <TableCell>
+                    {visible('usuario') && (
+                      <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Avatar
+                          sx={{
+                            width: 40,
+                            height: 40,
+                            backgroundColor: '#FF6B6B',
+                            fontSize: '1rem',
+                          }}
+                        >
+                          {user.firstName?.charAt(0) || 'U'}
+                        </Avatar>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {user.firstName} {user.lastName}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            @{user.username || user.email}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      </TableCell>
+                    )}
+                    {visible('documento') && (
+                      <TableCell>
+                      <Typography variant="body2">
+                        {user.documentType}: {user.documentNumber}
+                          </Typography>
+                      </TableCell>
+                    )}
+                    {visible('email') && (
+                      <TableCell>
+                      <Typography variant="body2">{user.email}</Typography>
+                      </TableCell>
+                    )}
+                    {visible('telefono') && (
+                      <TableCell>
+                      <Typography variant="body2">{user.phone || '-'}</Typography>
+                      </TableCell>
+                    )}
+                    {visible('rol') && (
+                      <TableCell>
                       <Chip
-                        label={getStatusLabel(user.status)}
+                        label={user.role}
+                        color={getRoleColor(user.role) as any}
+                        size="small"
+                        sx={{ fontWeight: 500 }}
+                      />
+                      </TableCell>
+                    )}
+                    {visible('empresa') && (
+                      <TableCell>
+                      <Typography variant="body2">
+                        {user.company?.name || '-'}
+                      </Typography>
+                      </TableCell>
+                    )}
+                    {visible('sede') && (
+                      <TableCell>
+                        <Typography variant="body2">{user.headquarters?.name || '-'}</Typography>
+                      </TableCell>
+                    )}
+                    {visible('cargo') && (
+                      <TableCell>
+                        <Typography variant="body2">{user.jobTitle?.name || '-'}</Typography>
+                      </TableCell>
+                    )}
+                    {visible('pais') && (
+                      <TableCell>
+                        <Typography variant="body2">{user.residenceCountry || '-'}</Typography>
+                      </TableCell>
+                    )}
+                    {visible('departamento') && (
+                      <TableCell>
+                        <Typography variant="body2">{user.residenceState || '-'}</Typography>
+                      </TableCell>
+                    )}
+                    {visible('ciudad') && (
+                      <TableCell>
+                        <Typography variant="body2">{user.residenceCity || '-'}</Typography>
+                      </TableCell>
+                    )}
+                    {visible('direccion1') && (
+                      <TableCell>
+                        <Typography variant="body2">{user.addressLine1 || '-'}</Typography>
+                      </TableCell>
+                    )}
+                    {visible('direccion2') && (
+                      <TableCell>
+                        <Typography variant="body2">{user.addressLine2 || '-'}</Typography>
+                      </TableCell>
+                    )}
+                    {visible('comentario') && (
+                      <TableCell>
+                        <Typography variant="body2">{user.commentary || '-'}</Typography>
+                      </TableCell>
+                    )}
+                    {visible('estado') && (
+                      <TableCell>
+                      <Chip
+                        label={user.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
                         color={getStatusColor(user.status) as any}
                         size="small"
                       />
-                    </TableCell>
-
-                    <TableCell>
-                      <Typography variant="body2">
-                        {formatDateTime(user.lastLogin)}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Creado: {formatDate(user.createdAt)}
-                      </Typography>
-                    </TableCell>
-
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        {hasPermission('users_read') && (
+                      </TableCell>
+                    )}
+                    {visible('ultimoAcceso') && (
+                      <TableCell>
+                        <Typography variant="body2">{user.lastLogin ? new Date(user.lastLogin).toLocaleString() : '-'}</Typography>
+                      </TableCell>
+                    )}
+                    {visible('creado') && (
+                      <TableCell>
+                        <Typography variant="body2">{new Date(user.createdAt).toLocaleDateString()}</Typography>
+                      </TableCell>
+                    )}
+                    {visible('actualizado') && (
+                      <TableCell>
+                        <Typography variant="body2">{new Date(user.updatedAt).toLocaleDateString()}</Typography>
+                      </TableCell>
+                    )}
+                    {visible('acciones') && (
+                      <TableCell>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
                           <Tooltip title="Ver detalles">
                             <IconButton
                               size="small"
-                              onClick={handleViewClick}
-                              data-document-number={user.documentNumber}
+                            onClick={() => handleOpenModal(user, false)}
+                            sx={{ color: '#2196F3' }}
                             >
                               <ViewIcon />
                             </IconButton>
                           </Tooltip>
-                        )}
-                        {canEditUser(user.role) && (
                           <Tooltip title="Editar">
                             <IconButton
                               size="small"
-                              onClick={handleEditClick}
-                              data-document-number={user.documentNumber}
+                            onClick={() => handleOpenModal(user, true)}
+                            sx={{ color: '#FF9800' }}
                             >
                               <EditIcon />
                             </IconButton>
                           </Tooltip>
-                        )}
-                        {(canEditUser(user.role) || canDeleteUser(user.role)) && (
-                          <Tooltip title="Más opciones">
+                        {currentUser?.role === 'SUPER_ADMIN' && user.documentNumber !== currentUser.documentNumber && (
+                          <Tooltip title="Eliminar">
                             <IconButton
                               size="small"
-                              onClick={handleMenuClick}
-                              data-document-number={user.documentNumber}
+                              onClick={() => handleDeleteUser(user.documentNumber)}
+                              sx={{ color: '#F44336' }}
                             >
-                              <MoreVertIcon />
+                              <DeleteIcon />
                             </IconButton>
                           </Tooltip>
                         )}
                       </Box>
-                    </TableCell>
+                      </TableCell>
+                    )}
                   </TableRow>
-                ))
-              )}
+                ))}
             </TableBody>
           </Table>
         </TableContainer>
+
+          {users.length === 0 && !loading && (
+            <Box
+              sx={{
+                textAlign: 'center',
+                py: 8,
+                color: 'text.secondary',
+              }}
+            >
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                No hay usuarios registrados
+              </Typography>
+              <Typography variant="body2">
+                Comienza creando el primer usuario del sistema
+              </Typography>
+            </Box>
+          )}
+        </CardContent>
       </Card>
 
-      {/* Action Menu */}
-      <Menu
-        anchorEl={menuAnchorEl}
-        open={Boolean(menuAnchorEl)}
-        onClose={handleMenuClose}
-      >
-        {selectedUser && canEditUser(selectedUser.role) && (
-          selectedUser.status === 'ACTIVE' ? (
-            <MenuItem onClick={() => selectedUser && handleToggleStatusClick(selectedUser)}>
-              <ListItemIcon>
-                <BlockIcon fontSize="small" color="warning" />
-              </ListItemIcon>
-              <ListItemText>Desactivar usuario</ListItemText>
-            </MenuItem>
-          ) : (
-            <MenuItem onClick={() => selectedUser && handleToggleStatusClick(selectedUser)}>
-              <ListItemIcon>
-                <CheckCircleIcon fontSize="small" color="success" />
-              </ListItemIcon>
-              <ListItemText>Activar usuario</ListItemText>
-            </MenuItem>
-          )
-        )}
-        {selectedUser && canEditUser(selectedUser.role) && canDeleteUser(selectedUser.role) && (
-          <Divider />
-        )}
-        {selectedUser && canDeleteUser(selectedUser.role) && (
-          <MenuItem onClick={() => selectedUser && handleDeleteClick(selectedUser)}>
-            <ListItemIcon>
-              <DeleteIcon fontSize="small" color="error" />
-            </ListItemIcon>
-            <ListItemText>Eliminar usuario</ListItemText>
-          </MenuItem>
-        )}
-      </Menu>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
+      {/* Diálogo de selección de columnas */}
+      <MuiDialog
+        open={columnsDialogOpen}
+        onClose={() => setColumnsDialogOpen(false)}
         maxWidth="sm"
         fullWidth
+        disableAutoFocus
+        disableEnforceFocus
+        disableEscapeKeyDown
+        disableRestoreFocus
+        keepMounted
+        PaperProps={{ sx: { borderRadius: 3 } }}
       >
-        <DialogTitle>Confirmar Eliminación</DialogTitle>
-        <DialogContent>
-          <Alert severity="error" sx={{ mb: 2 }}>
-            Esta acción no se puede deshacer
-          </Alert>
-          <Typography>
-            ¿Estás seguro de que deseas eliminar el usuario{' '}
-            <strong>{userToDelete?.firstName} {userToDelete?.lastName}</strong>?
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Se eliminará permanentemente toda la información asociada al usuario.
-          </Typography>
-          
-          {/* Show permission warning if trying to delete higher-level user */}
-          {userToDelete && !canDeleteUser(userToDelete.role) && (
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              <Box display="flex" alignItems="center">
-                <WarningIcon sx={{ mr: 1 }} />
-                No tienes permisos suficientes para eliminar un usuario con rol {getRoleLabel(userToDelete.role)}
-              </Box>
-            </Alert>
-          )}
-          
-          {userToDelete && canDeleteUser(userToDelete.role) && (
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              Usuario: {userToDelete.firstName} {userToDelete.lastName}<br/>
-              Documento: {getDocumentTypeLabel(userToDelete.documentType)} {userToDelete.documentNumber}<br/>
-              Email: {userToDelete.email}
-            </Alert>
-          )}
+        <MuiDialogTitle>Columnas visibles</MuiDialogTitle>
+        <MuiDialogContent dividers>
+          <FormGroup>
+            {COLUMN_OPTIONS.map(col => (
+              <FormControlLabel
+                key={col.key}
+                control={<Checkbox checked={columnsVisibility[col.key]} onChange={() => handleToggleColumn(col.key)} />}
+                label={col.label}
+              />)
+            )}
+          </FormGroup>
+        </MuiDialogContent>
+        <MuiDialogActions>
+          <Button onClick={() => {
+            // Restaurar predeterminadas
+            const defaults = COLUMN_OPTIONS.reduce((acc, c) => {
+              acc[c.key] = c.defaultVisible; return acc;
+            }, {} as Record<ColumnKey, boolean>);
+            setColumnsVisibility(defaults);
+            try { localStorage.setItem(VISIBLE_COLUMNS_STORAGE_KEY, JSON.stringify(defaults)); } catch {}
+            setColumnsDialogOpen(false);
+          }}>Restablecer</Button>
+          <Button variant="contained" onClick={() => setColumnsDialogOpen(false)}>Cerrar</Button>
+        </MuiDialogActions>
+      </MuiDialog>
+
+      {/* Modal para crear/editar usuario */}
+      <Dialog
+        open={modalOpen}
+        onClose={(event, reason) => {
+          // Evita aria-hidden warnings manteniendo controlado el foco
+          if (reason === 'backdropClick') return;
+          handleCloseModal();
+        }}
+        maxWidth="md"
+        fullWidth
+        disableAutoFocus
+        disableEnforceFocus
+        disableRestoreFocus
+        disableEscapeKeyDown
+        keepMounted
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            maxHeight: '90vh',
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E6B 100%)',
+            color: 'white',
+            fontWeight: 600,
+          }}
+        >
+          {isEditMode ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          <UserForm
+            initialData={selectedUser}
+            onCancel={handleCloseModal}
+            onSave={handleUserSaved}
+            isEditMode={isEditMode}
+          />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleDeleteConfirm}
-            color="error"
-            variant="contained"
-            disabled={userToDelete ? !canDeleteUser(userToDelete.role) : true}
-          >
-            Eliminar
-          </Button>
-        </DialogActions>
       </Dialog>
 
-      {/* UserModal */}
-      <UserModal />
+      {/* FAB para crear usuario */}
+      <Fab
+        color="primary"
+        aria-label="add"
+        onClick={() => handleOpenModal()}
+        sx={{
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E6B 100%)',
+          '&:hover': {
+            background: 'linear-gradient(135deg, #FF5A5A 0%, #FF7D5A 100%)',
+          },
+        }}
+      >
+        <AddIcon />
+      </Fab>
     </Box>
   );
 };

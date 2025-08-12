@@ -85,6 +85,7 @@ const initSuperAdmin = async () => {
     const superAdmins = [
       {
         email: 'iltonysverbel@gmail.com',
+        username: 'iltony.admin',
         firstName: 'Iltony',
         lastName: 'Sverbel',
         documentType: 'CEDULA' as const,
@@ -93,6 +94,7 @@ const initSuperAdmin = async () => {
       },
       {
         email: 'admin@itdimenzion.com',
+        username: 'super.admin',
         firstName: 'Super',
         lastName: 'Admin',
         documentType: 'CEDULA' as const,
@@ -112,7 +114,7 @@ const initSuperAdmin = async () => {
         
         // Actualizar si existe pero asegurar que tenga los permisos correctos
         await prisma.user.update({
-          where: { id: existingUser.id },
+          where: { documentNumber: existingUser.documentNumber },
           data: {
             role: 'SUPER_ADMIN',
             status: 'ACTIVE',

@@ -1,5 +1,7 @@
 import React from 'react';
 import { PhoneInput } from 'react-international-phone';
+// Aseguramos estilos base del plugin
+import 'react-international-phone/style.css';
 import { FormControl, FormLabel, Typography, Box } from '@mui/material';
 
 interface AdvancedPhoneInputProps {
@@ -26,7 +28,12 @@ const AdvancedPhoneInput: React.FC<AdvancedPhoneInputProps> = ({
   placeholder = "300 123 4567"
 }) => {
   const handlePhoneChange = (phone: string, meta: any) => {
-    onChange(phone, meta?.country || 'CO');
+    const isoCandidate =
+      typeof meta?.country === 'string'
+        ? meta.country
+        : meta?.country?.iso2 || meta?.countryIso2 || meta?.countryCode;
+    const iso = (isoCandidate || 'CO').toString().toUpperCase();
+    onChange(phone, iso);
   };
 
   return (
@@ -35,8 +42,10 @@ const AdvancedPhoneInput: React.FC<AdvancedPhoneInputProps> = ({
         <FormLabel 
           sx={{ 
             mb: 1, 
-            color: error ? '#FF69B4' : 'text.primary',
-            fontWeight: 500 
+            color: error ? '#FF69B4' : 'rgba(0, 0, 0, 0.6)',
+            fontWeight: 500,
+            fontSize: '1rem',
+            fontFamily: 'inherit'
           }}
         >
           {label}
@@ -47,20 +56,14 @@ const AdvancedPhoneInput: React.FC<AdvancedPhoneInputProps> = ({
           onChange={handlePhoneChange}
           onBlur={onBlur}
           disabled={disabled}
-          inputProps={{
-            placeholder,
-            style: {
-              width: '100%',
-              padding: '16.5px 14px',
-              border: error ? '2px solid #FF69B4' : '1px solid rgba(0, 0, 0, 0.23)',
-              borderRadius: '4px',
-              fontSize: '1rem',
-              fontFamily: 'inherit',
-              outline: 'none',
-              transition: 'border-color 0.2s ease-in-out',
-              backgroundColor: disabled ? 'rgba(0, 0, 0, 0.06)' : 'transparent'
-            }
+          inputProps={{ placeholder }}
+          style={{
+            width: '100%',
+            borderRadius: 4,
+            fontSize: '1rem',
+            fontFamily: 'inherit'
           }}
+          className="itd-phone-input"
           countrySelectorStyleProps={{
             buttonStyle: {
               border: 'none',
@@ -93,6 +96,30 @@ const AdvancedPhoneInput: React.FC<AdvancedPhoneInputProps> = ({
           </Typography>
         )}
       </FormControl>
+      <style>{`
+        .itd-phone-input .react-international-phone-input-container {
+          width: 100%;
+        }
+        .itd-phone-input .react-international-phone-input {
+          width: 100%;
+          padding: 16.5px 14px;
+          border: ${error ? '2px solid #FF69B4' : '1px solid rgba(0,0,0,0.23)'};
+          border-radius: 4px;
+          transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+          background: ${disabled ? 'rgba(0,0,0,0.06)' : '#fff'};
+          color: #1f1f1f;
+        }
+        .itd-phone-input .react-international-phone-country-selector-button {
+          background: rgba(0,0,0,0.03);
+          border-right: 1px solid rgba(0,0,0,0.1);
+          border-radius: 4px 0 0 4px;
+        }
+        .itd-phone-input .react-international-phone-input:focus-within {
+          border-color: #FF69B4;
+          box-shadow: 0 0 0 2px rgba(255, 105, 180, 0.2);
+          outline: none;
+        }
+      `}</style>
     </Box>
   );
 };

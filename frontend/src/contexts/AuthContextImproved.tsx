@@ -216,7 +216,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       dispatch({ type: 'AUTH_START' });
 
-      // Validar entrada
       const sanitizedEmail = sanitizeInput(email).toLowerCase();
       
       if (!isValidEmail(sanitizedEmail)) {
@@ -276,7 +275,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       dispatch({ type: 'AUTH_START' });
 
-      // Sanitizar datos de entrada
       const sanitizedData = {
         ...userData,
         email: sanitizeInput(userData.email).toLowerCase(),
@@ -286,7 +284,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         phone: userData.phone ? sanitizeInput(userData.phone) : undefined,
       };
 
-      // Validaciones del cliente
       if (!isValidEmail(sanitizedData.email)) {
         const errorMessage = 'Email no válido';
         dispatch({ 
@@ -315,8 +312,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       const response = await api.post('/auth/register', sanitizedData);
-
-      // No hacer login automático por seguridad
       dispatch({ type: 'AUTH_LOGOUT' });
       return { success: true };
 

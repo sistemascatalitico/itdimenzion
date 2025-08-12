@@ -24,29 +24,34 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: Get current date and time for backup naming
-for /f "tokens=1-4 delims=/ " %%i in ('date /t') do (
-    set "BACKUP_DATE=%%k-%%j-%%i"
-)
-for /f "tokens=1-2 delims=: " %%i in ('time /t') do (
-    set "BACKUP_TIME=%%i-%%j"
-)
+:: Función para obtener fecha y hora en formato YYYY-MM-DD-hh-mm-ss
+call :GetTimestamp TIMESTAMP
 
-:: Remove spaces and format time properly
-set "BACKUP_TIME=%BACKUP_TIME: =0%"
-set "BACKUP_TIME=%BACKUP_TIME::=-%"
-
-:: Create backup directory if it doesn't exist
+:: Definir las rutas segun especificacion
 set "PROJECT_ROOT=%~dp0.."
-set "BACKUP_DIR=%PROJECT_ROOT%\Backups"
+set "BACKUP_BASE_DIR=%PROJECT_ROOT%\Backups"
+set "BACKUP_DIR=%BACKUP_BASE_DIR%\DB"
+set "TEMP_DIR=%BACKUP_DIR%\temp_db_%TIMESTAMP%"
+set "DB_BACKUP_NAME=ITDimenzion_DB_%TIMESTAMP%.sql"
+set "SCHEMA_BACKUP_NAME=ITDimenzion_Schema_%TIMESTAMP%.sql"
+set "DB_BACKUP_PATH=%TEMP_DIR%\%DB_BACKUP_NAME%"
+set "SCHEMA_BACKUP_PATH=%TEMP_DIR%\%SCHEMA_BACKUP_NAME%"
+set "FINAL_ZIP_PATH=%BACKUP_DIR%\ITDimenzion_DB_%TIMESTAMP%.zip"
+
+:: Crear la estructura de directorios si no existe
+echo Verificando estructura de directorios...
+if not exist "%BACKUP_BASE_DIR%" (
+    echo Creando directorio base: %BACKUP_BASE_DIR%
+    mkdir "%BACKUP_BASE_DIR%"
+)
 if not exist "%BACKUP_DIR%" (
-    echo Creating Backups directory...
+    echo Creando directorio de base de datos: %BACKUP_DIR%
     mkdir "%BACKUP_DIR%"
 )
-
-:: Set backup file names with timestamp
-set "DB_BACKUP_NAME=ITDimenzion_Database_%BACKUP_DATE%_%BACKUP_TIME%.sql"
-set "DB_BACKUP_PATH=%BACKUP_DIR%\%DB_BACKUP_NAME%"
+if not exist "%TEMP_DIR%" (
+    echo Creando directorio temporal: %TEMP_DIR%
+    mkdir "%TEMP_DIR%"
+)
 
 echo Current time: %date% %time%
 echo Database backup will be saved to: %DB_BACKUP_PATH%
@@ -116,12 +121,16 @@ if %errorlevel% neq 0 (
 
 :: Create schema-only backup
 echo [2/3] Creating schema-only backup...
-set "SCHEMA_BACKUP_PATH=%BACKUP_DIR%\ITDimenzion_Schema_%BACKUP_DATE%_%BACKUP_TIME%.sql"
 mysqldump -h%DB_HOST% -P%DB_PORT% -u%DB_USER% -p%DB_PASSWORD% --no-data --routines --triggers %DB_NAME% > "%SCHEMA_BACKUP_PATH%"
+
+if %errorlevel% neq 0 (
+    echo ERROR: Schema backup failed!
+    goto :cleanup_and_exit
+)
 
 :: Create backup info file
 echo [3/3] Creating backup information file...
-set "INFO_FILE=%BACKUP_DIR%\Database_Backup_Info_%BACKUP_DATE%_%BACKUP_TIME%.txt"
+set "INFO_FILE=%TEMP_DIR%\Database_Backup_Info_%TIMESTAMP%.txt"
 (
     echo ITDimenzion Database Backup Information
     echo ======================================
@@ -137,7 +146,8 @@ set "INFO_FILE=%BACKUP_DIR%\Database_Backup_Info_%BACKUP_DATE%_%BACKUP_TIME%.txt
     echo.
     echo Backup Files Created:
     echo - Full Backup: %DB_BACKUP_NAME%
-    echo - Schema Only: ITDimenzion_Schema_%BACKUP_DATE%_%BACKUP_TIME%.sql
+    echo - Schema Only: %SCHEMA_BACKUP_NAME%
+    echo - ZIP Archive: ITDimenzion_DB_%TIMESTAMP%.zip
     echo.
     echo Backup Contents:
     echo - All database tables with data
@@ -162,12 +172,28 @@ set "INFO_FILE=%BACKUP_DIR%\Database_Backup_Info_%BACKUP_DATE%_%BACKUP_TIME%.txt
     echo 6. Click "Start Import"
     echo.
     echo Schema-only restore ^(for development setup^):
-    echo mysql -u[username] -p[password] [new_database] ^< "ITDimenzion_Schema_%BACKUP_DATE%_%BACKUP_TIME%.sql"
+    echo mysql -u[username] -p[password] [new_database] ^< "%SCHEMA_BACKUP_NAME%"
+    echo.
+    echo To extract ZIP backup:
+    echo 1. Extract ITDimenzion_DB_%TIMESTAMP%.zip
+    echo 2. Use the SQL files for database restoration
     echo.
 ) > "%INFO_FILE%"
 
+:: Compress all backup files into ZIP
+echo [4/4] Compressing backup files...
+powershell -Command "Compress-Archive -Path '%TEMP_DIR%\*' -DestinationPath '%FINAL_ZIP_PATH%' -CompressionLevel Optimal"
+
+if %errorlevel% neq 0 (
+    echo ERROR: Failed to create ZIP archive using PowerShell.
+    goto :cleanup_and_exit
+)
+
+:: Clean up temporary directory
+rmdir /s /q "%TEMP_DIR%"
+
 :: Get backup file size
-for %%i in ("%DB_BACKUP_PATH%") do set "BACKUP_SIZE=%%~zi"
+for %%i in ("%FINAL_ZIP_PATH%") do set "BACKUP_SIZE=%%~zi"
 
 :: Completion message
 echo.
@@ -176,64 +202,46 @@ echo   DATABASE BACKUP COMPLETED!
 echo =====================================
 echo.
 echo Backup Details:
-echo - Full Backup: %DB_BACKUP_NAME% ^(%BACKUP_SIZE% bytes^)
-echo - Schema Only: ITDimenzion_Schema_%BACKUP_DATE%_%BACKUP_TIME%.sql
-echo - Info File: Database_Backup_Info_%BACKUP_DATE%_%BACKUP_TIME%.txt
+echo - ZIP Archive: ITDimenzion_DB_%TIMESTAMP%.zip ^(%BACKUP_SIZE% bytes^)
+echo - Contains: Full backup, Schema only, Info file
 echo.
 echo Backup Location: %BACKUP_DIR%
 echo.
 echo To restore database:
-echo mysql -u%DB_USER% -p ^< "%DB_BACKUP_PATH%"
+echo 1. Extract ITDimenzion_DB_%TIMESTAMP%.zip
+echo 2. mysql -u%DB_USER% -p ^< "%DB_BACKUP_NAME%"
 echo.
-
-:: Create restore script
-set "RESTORE_SCRIPT=%BACKUP_DIR%\restore-database_%BACKUP_DATE%_%BACKUP_TIME%.bat"
-(
-    echo @echo off
-    echo :: ITDimenzion Database Restore Script
-    echo :: Generated: %date% %time%
-    echo.
-    echo echo =====================================
-    echo echo   ITDimenzion Database Restore Tool
-    echo echo =====================================
-    echo echo.
-    echo echo This script will restore the database backup from:
-    echo echo %DB_BACKUP_NAME%
-    echo echo.
-    echo echo WARNING: This will overwrite the existing database!
-    echo echo.
-    echo set /p "CONFIRM=Are you sure you want to continue? ^(y/n^): "
-    echo if /i not "%%CONFIRM%%"=="y" ^(
-    echo     echo Restore cancelled.
-    echo     pause
-    echo     exit /b 0
-    echo ^)
-    echo.
-    echo echo Enter MySQL credentials for restore:
-    echo set /p "RESTORE_USER=MySQL Username [%DB_USER%]: "
-    echo if "%%RESTORE_USER%%"=="" set "RESTORE_USER=%DB_USER%"
-    echo.
-    echo set /p "RESTORE_PASSWORD=MySQL Password: "
-    echo.
-    echo echo Restoring database...
-    echo mysql -u%%RESTORE_USER%% -p%%RESTORE_PASSWORD%% ^< "%DB_BACKUP_NAME%"
-    echo.
-    echo if %%errorlevel%% equ 0 ^(
-    echo     echo Database restore completed successfully!
-    echo ^) else ^(
-    echo     echo ERROR: Database restore failed!
-    echo ^)
-    echo.
-    echo pause
-) > "%RESTORE_SCRIPT%"
 
 :: Clear password from memory for security
 set "DB_PASSWORD="
-
-echo Restore script created: restore-database_%BACKUP_DATE%_%BACKUP_TIME%.bat
-echo.
 
 :: Open backup directory
 explorer "%BACKUP_DIR%"
 
 pause
+goto :eof
+
+:cleanup_and_exit
+:: Cleanup temporary files on error
+if exist "%TEMP_DIR%" (
+    echo Cleaning up temporary files...
+    rmdir /s /q "%TEMP_DIR%"
+)
+:: Clear password from memory for security
+set "DB_PASSWORD="
+pause
+exit /b 1
+
+:GetTimestamp
+:: Function to get timestamp in YYYY-MM-DD-hh-mm-ss format
+for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /format:list') do (
+    if not "%%I"=="" set "dt=%%I"
+)
+set "YEAR=%dt:~0,4%"
+set "MONTH=%dt:~4,2%"
+set "DAY=%dt:~6,2%"
+set "HOUR=%dt:~8,2%"
+set "MINUTE=%dt:~10,2%"
+set "SECOND=%dt:~12,2%"
+set "%1=%YEAR%-%MONTH%-%DAY%-%HOUR%-%MINUTE%-%SECOND%"
+goto :eof

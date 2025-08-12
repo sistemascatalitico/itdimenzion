@@ -27,8 +27,10 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import SimplePhoneInput from '../common/SimplePhoneInput';
+import CompactPhoneInput from '../common/CompactPhoneInput';
 import SecureLocationSelectors from '../common/SecureLocationSelectors';
+import LoadingScreen from '../common/LoadingScreen';
+import SuccessMessage from '../common/SuccessMessage';
 import { useMultiStep } from '../../hooks/useMultiStep';
 import { StepNavigator, ProgressBar } from '../common/MultiStepForm';
 
@@ -44,7 +46,9 @@ const documentTypes = [
 
 interface LocationData {
   country: string;
+  countryName?: string;
   state: string;
+  stateName?: string;
   city: string;
 }
 
@@ -60,6 +64,8 @@ interface RegisterData {
   password: string;
   confirmPassword: string;
   location: LocationData;
+  addressLine1?: string;
+  addressLine2?: string;
 }
 
 interface RegisterErrors {
@@ -103,20 +109,28 @@ const RegisterForm: React.FC = () => {
     confirmPassword: '',
     location: {
       country: '',
+      countryName: '',
       state: '',
+      stateName: '',
       city: ''
-    }
+    },
+    addressLine1: '',
+    addressLine2: ''
   });
 
   const [errors, setErrors] = useState<RegisterErrors>({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showLoadingScreen, setShowLoadingScreen] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [showInitialLoading, setShowInitialLoading] = useState(true);
 
   // Estilos uniformes para todos los campos
   const fieldStyles = {
     '& .MuiOutlinedInput-root': {
       borderRadius: 1,
+      color: '#1f1f1f',
       '&:hover fieldset': {
         borderColor: '#FF69B4',
       },
@@ -135,6 +149,8 @@ const RegisterForm: React.FC = () => {
       fontWeight: 500,
     }
   };
+
+
 
   // Validación por pasos
   const validateStep = (step: number): boolean => {
@@ -198,6 +214,16 @@ const RegisterForm: React.FC = () => {
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | any
   ) => {
     const value = event.target.value;
+    
+    // Para campos Select, asegurarse de que el valor sea válido
+    if (field === 'documentType') {
+      const validTypes = documentTypes.map(type => type.value);
+      if (!validTypes.includes(value)) {
+        console.warn('Invalid document type selected:', value);
+        return;
+      }
+    }
+    
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Clear error when user starts typing
@@ -210,12 +236,8 @@ const RegisterForm: React.FC = () => {
   };
 
   // Handle phone input changes
-  const handlePhoneChange = (phone: string, country: string) => {
-    setFormData(prev => ({ 
-      ...prev, 
-      phone: phone,
-      countryCode: country.toUpperCase()
-    }));
+  const handlePhoneChange = (phone: string) => {
+    setFormData(prev => ({ ...prev, phone }));
     
     if (errors.phone) {
       setErrors(prev => ({ ...prev, phone: undefined }));
@@ -236,6 +258,8 @@ const RegisterForm: React.FC = () => {
       setErrors(prev => ({ ...prev, general: undefined }));
     }
   };
+
+  // No se requiere mapeo adicional: usamos SecureLocationSelectors con etiquetas MUI
 
   // Manejo de navegación
   const handleNext = () => {
@@ -278,7 +302,6 @@ const RegisterForm: React.FC = () => {
       // El PhoneInput ya proporciona el número completo con código de país
       const fullPhoneNumber = formData.phone || undefined;
       
-      
       const result = await register({
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(), 
@@ -291,8 +314,8 @@ const RegisterForm: React.FC = () => {
       });
       
       if (result.success) {
-        // Success - redirect to login
-        navigate('/login');
+        // Mostrar pantalla de carga
+        setShowLoadingScreen(true);
       } else {
         setErrors({ general: result.error || 'Error en el registro' });
       }
@@ -301,6 +324,20 @@ const RegisterForm: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLoadingComplete = () => {
+    setShowLoadingScreen(false);
+    setShowSuccessMessage(true);
+  };
+
+  const handleSuccessComplete = () => {
+    setShowSuccessMessage(false);
+    navigate('/login');
+  };
+
+  const handleInitialLoadingComplete = () => {
+    setShowInitialLoading(false);
   };
 
   const handleLogin = () => {
@@ -355,9 +392,19 @@ const RegisterForm: React.FC = () => {
       >
         <InputLabel>Tipo de Documento *</InputLabel>
         <Select
+          key={`doc-type-${formData.documentType}`}
           value={formData.documentType}
           onChange={handleInputChange('documentType')}
           input={<OutlinedInput label="Tipo de Documento *" />}
+          MenuProps={{
+            PaperProps: {
+              sx: {
+                maxHeight: 320,
+                '&::-webkit-scrollbar': { width: 6 },
+                '&::-webkit-scrollbar-thumb': { backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: 3 },
+              }
+            }
+          }}
         >
           {documentTypes.map((type) => (
             <MenuItem key={type.value} value={type.value}>
@@ -397,9 +444,9 @@ const RegisterForm: React.FC = () => {
         sx={fieldStyles}
       />
 
-      {/* Phone Input */}
+      {/* Teléfono con selector de indicativo y bandera (plugin con todos los países) */}
       <Box sx={{ mt: 2 }}>
-        <SimplePhoneInput
+        <CompactPhoneInput
           value={formData.phone}
           onChange={handlePhoneChange}
           error={!!errors.phone}
@@ -432,9 +479,27 @@ const RegisterForm: React.FC = () => {
           onChange={handleLocationChange}
           error={errors.location}
           required={false}
-          enableDynamicLoading={false}
+          enableDynamicLoading={true}
         />
       </Box>
+
+      {/* Dirección manual (opcional) */}
+      <TextField
+        fullWidth
+        label="Dirección línea 1"
+        value={formData.addressLine1}
+        onChange={handleInputChange('addressLine1' as any)}
+        margin="normal"
+        sx={fieldStyles}
+      />
+      <TextField
+        fullWidth
+        label="Dirección línea 2 (opcional)"
+        value={formData.addressLine2}
+        onChange={handleInputChange('addressLine2' as any)}
+        margin="normal"
+        sx={fieldStyles}
+      />
 
       <Typography 
         variant="body2" 
@@ -544,12 +609,32 @@ const RegisterForm: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        position: 'minHeight: 100vh',
+        position: 'fixed',
         top: 0,
         left: 0,
         p: 2,
+        opacity: showInitialLoading ? 0 : 1,
+        transition: 'opacity 0.5s ease-in-out',
+        pointerEvents: showInitialLoading ? 'none' : 'auto',
       }}
     >
+      {/* Override Autofill y foco rosado */}
+      <style>{`
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus,
+        textarea:-webkit-autofill,
+        select:-webkit-autofill {
+          -webkit-box-shadow: 0 0 0px 1000px #fff inset !important;
+          box-shadow: 0 0 0px 1000px #fff inset !important;
+          -webkit-text-fill-color: inherit !important;
+          transition: background-color 5000s ease-in-out 0s !important;
+        }
+        .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+          border-color: #FF69B4 !important;
+          box-shadow: 0 0 0 2px rgba(255, 105, 180, 0.2) !important;
+        }
+      `}</style>
       <Card
         sx={{
           width: { xs: '90%', sm: '420px' },
@@ -644,6 +729,27 @@ const RegisterForm: React.FC = () => {
           </Box>
         </CardContent>
       </Card>
+
+      {/* Pantalla de Carga Inicial */}
+      <LoadingScreen 
+        isVisible={showInitialLoading} 
+        onComplete={handleInitialLoadingComplete}
+        duration={1500}
+      />
+
+      {/* Pantalla de Carga */}
+      <LoadingScreen 
+        isVisible={showLoadingScreen} 
+        onComplete={handleLoadingComplete}
+        duration={1000}
+      />
+
+      {/* Mensaje de Éxito */}
+      <SuccessMessage 
+        isVisible={showSuccessMessage} 
+        onComplete={handleSuccessComplete}
+        message="¡Usuario registrado con éxito!"
+      />
     </Box>
   );
 };

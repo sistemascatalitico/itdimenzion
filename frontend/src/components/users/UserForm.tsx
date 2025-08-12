@@ -1,1016 +1,618 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Card,
-  CardContent,
   TextField,
   Button,
-  Typography,
-  MenuItem,
-  Alert,
-  InputAdornment,
-  IconButton,
+  Grid,
   FormControl,
   InputLabel,
   Select,
-  OutlinedInput,
-  Chip,
+  MenuItem,
+  Typography,
   Divider,
-  Paper,
-  Avatar,
-  Switch,
-  FormControlLabel,
+  CircularProgress,
+  Alert,
+  DialogActions,
 } from '@mui/material';
-import Grid from '@mui/material/Unstable_Grid2';
-import {
-  Visibility,
-  VisibilityOff,
-  Person,
-  Email,
-  Phone,
-  Badge,
-  AccountCircle,
-  Lock,
-  Business,
-  Work,
-  Save as SaveIcon,
-  Cancel as CancelIcon,
-  PhotoCamera,
-  Delete as DeleteIcon,
-  ContactPhone,
-  Security,
-  Assignment,
-} from '@mui/icons-material';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material';
 import api from '../../config/api';
+import CompactPhoneInput from '../common/CompactPhoneInput';
+import SecureLocationSelectors from '../common/SecureLocationSelectors';
+import { COLOMBIA_COMPLETE_DATA } from '../../data/colombiaCities';
 
-// Country data with flags and phone codes (same as registration)
-const countries = [
-  { code: 'CO', name: 'Colombia', phone: '+57', flag: '🇨🇴' },
-  { code: 'US', name: 'Estados Unidos', phone: '+1', flag: '🇺🇸' },
-  { code: 'MX', name: 'México', phone: '+52', flag: '🇲🇽' },
-  { code: 'AR', name: 'Argentina', phone: '+54', flag: '🇦🇷' },
-  { code: 'BR', name: 'Brasil', phone: '+55', flag: '🇧🇷' },
-  { code: 'CL', name: 'Chile', phone: '+56', flag: '🇨🇱' },
-  { code: 'PE', name: 'Perú', phone: '+51', flag: '🇵🇪' },
-  { code: 'EC', name: 'Ecuador', phone: '+593', flag: '🇪🇨' },
-  { code: 'VE', name: 'Venezuela', phone: '+58', flag: '🇻🇪' },
-  { code: 'ES', name: 'España', phone: '+34', flag: '🇪🇸' },
-];
-
-// Document types
-const documentTypes = [
-  { value: 'CEDULA', label: 'Cédula de Ciudadanía' },
-  { value: 'TARJETA_IDENTIDAD', label: 'Tarjeta de Identidad' },
-  { value: 'CEDULA_EXTRANJERIA', label: 'Cédula de Extranjería' },
-  { value: 'PASSPORT', label: 'Pasaporte' },
-  { value: 'NIT', label: 'NIT' },
-  { value: 'RUT', label: 'RUT' },
-];
-
-// User roles
-const userRoles = [
-  { value: 'USER', label: 'Usuario' },
-  { value: 'SUPERVISOR', label: 'Supervisor' },
-  { value: 'ADMIN', label: 'Administrador' },
-  { value: 'SUPER_ADMIN', label: 'Super Administrador' },
-];
-
-export interface UserFormData {
+interface User {
+  id: string;
   firstName: string;
   lastName: string;
   email: string;
   username: string;
-  password: string;
-  confirmPassword: string;
-  phone: string;
-  countryCode: string;
-  documentType: string;
   documentNumber: string;
+  documentType: string;
+  phone: string;
   role: string;
-  status: string;
-  companyId: string;
-  headquartersId: string;
-  processId: string;
-  jobTitleId: string;
-  profilePicture: string;
-}
-
-interface FormErrors {
-  [key: string]: string;
-}
-
-interface Company {
-  id: number;
+  isActive: boolean;
+  contactEmail?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  residenceCountry?: string;
+  residenceState?: string;
+  residenceCity?: string;
+  company?: {
+    id: string;
+    name: string;
+  };
+  headquarters?: {
+    id: string;
   name: string;
+  };
+  process?: {
+    id: string;
+  name: string;
+  };
+  jobTitle?: {
+    id: string;
+  name: string;
+  };
 }
 
-interface Headquarters {
-  id: number;
-  name: string;
-  companyId: number;
-}
-
-interface Process {
-  id: number;
-  name: string;
-}
-
-interface JobTitle {
-  id: number;
-  name: string;
-  processId: number;
+interface LocationData {
+  country: string;
+  state: string;
+  city: string;
+  countryName?: string;
+  stateName?: string;
 }
 
 interface UserFormProps {
-  initialData?: Partial<UserFormData>;
-  onSubmit?: (data: UserFormData) => Promise<void>;
-  onCancel?: () => void;
-  isLoading?: boolean;
-  isEditMode?: boolean;
+  initialData?: User | null;
+  onCancel: () => void;
+  onSave: () => void;
+  isEditMode: boolean;
 }
 
-const UserForm: React.FC<UserFormProps> = ({ initialData, onCancel, isEditMode }) => {
-  const navigate = useNavigate();
-  const { userId } = useParams<{ userId: string }>();
-  const { user: currentUser } = useAuth();
+const UserForm: React.FC<UserFormProps> = ({
+  initialData,
+  onCancel,
+  onSave,
+  isEditMode,
+}) => {
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
-  const isEditing = Boolean(userId);
-  const isCreating = !isEditing;
-
-  const [formData, setFormData] = useState<UserFormData>({
+  const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     username: '',
+    documentNumber: '',
+    documentType: '',
+    phone: '',
+    role: '',
+    isActive: true,
+    contactEmail: '',
+    addressLine1: '',
+    addressLine2: '',
+    residenceCountry: '',
+    residenceState: '',
+    residenceCity: '',
     password: '',
     confirmPassword: '',
-    phone: '',
-    countryCode: 'CO',
-    documentType: '',
-    documentNumber: '',
-    role: 'USER',
-    status: 'ACTIVE',
-    companyId: '',
-    headquartersId: '',
-    processId: '',
-    jobTitleId: '',
-    profilePicture: '',
   });
 
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [submitError, setSubmitError] = useState('');
-  const [submitSuccess, setSubmitSuccess] = useState('');
+  const [locationData, setLocationData] = useState<LocationData>({
+    country: '',
+    state: '',
+    city: '',
+  });
 
-  // Options data
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [headquarters, setHeadquarters] = useState<Headquarters[]>([]);
-  const [processes, setProcesses] = useState<Process[]>([]);
-  const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
+  const [options, setOptions] = useState({
+    documentTypes: [
+      { value: 'CEDULA', label: 'Cédula de Ciudadanía' },
+      { value: 'CEDULA_EXTRANJERIA', label: 'Cédula de Extranjería' },
+      { value: 'TARJETA_IDENTIDAD', label: 'Tarjeta de Identidad' },
+      { value: 'PASSPORT', label: 'Pasaporte' },
+      { value: 'NIT', label: 'NIT' },
+      { value: 'RUT', label: 'RUT' },
+    ],
+    roles: [
+      { value: 'SUPER_ADMIN', label: 'Super Administrador' },
+      { value: 'ADMIN', label: 'Administrador' },
+      { value: 'SUPERVISOR', label: 'Supervisor' },
+      { value: 'USER', label: 'Usuario' },
+    ],
+  });
 
-  // Load form data if editing
-  useEffect(() => {
-    if (isEditing && userId) {
-      loadUser(userId);
-    }
-    loadFormOptions();
-  }, [isEditing, userId]);
-
-  // Handle initial data from props - solo ejecutar cuando initialData cambie realmente
   useEffect(() => {
     if (initialData) {
-      setFormData(prev => ({
-        ...prev,
-        ...initialData
-      }));
+      // Normalización de ubicación para valores existentes
+      const normalizeCountry = (c?: string) => {
+        if (!c) return '';
+        const v = String(c).toUpperCase();
+        if (v === 'CO' || v === 'COLOMBIA') return 'CO';
+        if (v === 'US' || v === 'USA' || v === 'ESTADOS UNIDOS') return 'US';
+        return c as string;
+      };
+
+      const normalizeStateForCO = (s?: string) => {
+        if (!s) return '';
+        const upper = String(s).toUpperCase();
+        const byId = COLOMBIA_COMPLETE_DATA.find(st => st.id.toUpperCase() === upper);
+        if (byId) return byId.id;
+        const byName = COLOMBIA_COMPLETE_DATA.find(st => st.name.toUpperCase() === upper);
+        return byName ? byName.id : (s as string);
+      };
+
+      const normalizedCountry = normalizeCountry(initialData.residenceCountry);
+      const normalizedState = normalizedCountry === 'CO' ? normalizeStateForCO((initialData as any).residenceState || (initialData as any).state) : ((initialData as any).residenceState || (initialData as any).state || '');
+      
+      setFormData({
+        firstName: initialData.firstName || '',
+        lastName: initialData.lastName || '',
+        email: initialData.email || '',
+        username: initialData.username || '',
+        documentNumber: initialData.documentNumber || '',
+        documentType: initialData.documentType || '',
+        phone: initialData.phone || '',
+        role: initialData.role || '',
+        isActive: initialData.isActive,
+        contactEmail: initialData.contactEmail || initialData.email || '',
+        addressLine1: initialData.addressLine1 || '',
+        addressLine2: initialData.addressLine2 || '',
+        residenceCountry: normalizedCountry,
+        residenceState: normalizedState,
+        residenceCity: (initialData as any).residenceCity || (initialData as any).city || '',
+        password: '',
+        confirmPassword: '',
+      });
+
+      setLocationData({
+        country: normalizedCountry,
+        state: normalizedState,
+        city: (initialData as any).residenceCity || (initialData as any).city || '',
+      });
     }
   }, [initialData]);
 
-  // Filter headquarters by selected company
-  const filteredHeadquarters = headquarters.filter(
-    hq => hq.companyId && hq.companyId.toString() === formData.companyId
-  );
-
-  // Filter job titles by selected process
-  const filteredJobTitles = jobTitles.filter(
-    jt => jt.processId && jt.processId.toString() === formData.processId
-  );
-
-  const loadUser = async (id: string) => {
-    try {
-      const response = await api.get(`/users/${id}`);
-      const user = response.data.user;
-      
-      setFormData({
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        email: user.email || '',
-        username: user.username || '',
-        password: '',
-        confirmPassword: '',
-        phone: user.phone?.replace(/^\+\d+/, '') || '', // Remove country code
-        countryCode: getCountryCodeFromPhone(user.phone) || 'CO',
-        documentType: user.documentType || '',
-        documentNumber: user.documentNumber || '',
-        role: user.role || 'USER',
-        status: user.status || 'ACTIVE',
-        companyId: user.companyId?.toString() || '',
-        headquartersId: user.headquartersId?.toString() || '',
-        processId: user.processId?.toString() || '',
-        jobTitleId: user.jobTitleId?.toString() || '',
-        profilePicture: user.profilePicture || '',
-      });
-    } catch (error) {
-      setSubmitError('Error al cargar usuario');
-    }
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
-  const getCountryCodeFromPhone = (phone?: string): string => {
-    if (!phone) return 'CO';
-    const country = countries.find(c => phone.startsWith(c.phone));
-    return country?.code || 'CO';
+  const handlePhoneChange = (phone: string) => {
+    setFormData(prev => ({
+      ...prev,
+      phone
+    }));
   };
 
-  const loadFormOptions = async () => {
-    try {
-      // Load companies
-      const companiesResponse = await api.get('/companies');
-      setCompanies(companiesResponse.data.companies || []);
-
-      // Load headquarters
-      const headquartersResponse = await api.get('/headquarters');
-      setHeadquarters(headquartersResponse.data.headquarters || []);
-
-      // Load processes
-      const processesResponse = await api.get('/processes');
-      setProcesses(processesResponse.data.processes || []);
-
-      // Load job titles
-      const jobTitlesResponse = await api.get('/job-titles');
-      setJobTitles(jobTitlesResponse.data.jobTitles || []);
-    } catch (error) {
-      console.error('Error loading form options:', error);
-    }
+  const handleLocationChange = (location: LocationData) => {
+    setLocationData(location);
+    setFormData(prev => ({
+      ...prev,
+      residenceCountry: location.country,
+      residenceState: location.state,
+      residenceCity: location.city,
+    }));
   };
 
-  const validateForm = (): boolean => {
-    const newErrors: FormErrors = {};
+  const validateForm = () => {
+    const errors: string[] = [];
 
-    // Required fields validation
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = 'El nombre es obligatorio';
-    }
+    if (!formData.firstName.trim()) errors.push('El nombre es obligatorio');
+    if (!formData.lastName.trim()) errors.push('El apellido es obligatorio');
+    if (!formData.email.trim()) errors.push('El email es obligatorio');
+    if (!formData.documentNumber.trim()) errors.push('El número de documento es obligatorio');
+    if (!formData.documentType) errors.push('El tipo de documento es obligatorio');
+    if (!formData.role) errors.push('El rol es obligatorio');
 
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = 'El apellido es obligatorio';
-    }
-
-    // Email validation
-    if (!formData.email.trim()) {
-      newErrors.email = 'El email es obligatorio';
-    } else {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email)) {
-        newErrors.email = 'Ingrese un email válido';
-      }
-    }
-
-    // Password validation (only for creation or if password is provided)
-    if (isCreating || formData.password) {
-      if (!formData.password) {
-        newErrors.password = 'La contraseña es obligatoria';
-      } else if (formData.password.length < 8) {
-        newErrors.password = 'La contraseña debe tener al menos 8 caracteres';
-      }
-
+    if (!isEditMode) {
+      if (!formData.username.trim()) errors.push('El nombre de usuario es obligatorio');
+      if (!formData.password) errors.push('La contraseña es obligatoria');
       if (formData.password !== formData.confirmPassword) {
-        newErrors.confirmPassword = 'Las contraseñas no coinciden';
+        errors.push('Las contraseñas no coinciden');
       }
     }
 
-    // Document validation
-    if (!formData.documentType) {
-      newErrors.documentType = 'Seleccione un tipo de documento';
+    if (errors.length > 0) {
+      setMessage({ type: 'error', text: errors.join(', ') });
+      return false;
     }
 
-    if (!formData.documentNumber.trim()) {
-      newErrors.documentNumber = 'El número de documento es obligatorio';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return true;
   };
 
-  const handleInputChange = (field: keyof UserFormData) => (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | any
-  ) => {
-    const value = event.target.value;
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
+    if (!validateForm()) return;
 
-    // Clear headquarters when company changes
-    if (field === 'companyId') {
-      setFormData(prev => ({ ...prev, headquartersId: '' }));
-    }
-
-    // Clear job title when process changes
-    if (field === 'processId') {
-      setFormData(prev => ({ ...prev, jobTitleId: '' }));
-    }
-  };
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setSubmitError('');
-    setSubmitSuccess('');
-
-    if (!validateForm()) {
-      return;
-    }
-
-    setLoading(true);
+    setSaving(true);
+    setMessage(null);
 
     try {
-      const selectedCountry = countries.find(c => c.code === formData.countryCode);
-      const fullPhoneNumber = formData.phone ? `${selectedCountry?.phone}${formData.phone}` : '';
-      
-      const userData = {
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-        email: formData.email.trim().toLowerCase(),
-        username: formData.username.trim() || undefined,
-        phone: fullPhoneNumber,
+      // Preparar payload solo con campos soportados por el backend
+      const userData: any = {
+        documentNumber: formData.documentNumber,
         documentType: formData.documentType,
-        documentNumber: formData.documentNumber.trim(),
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        contactEmail: formData.contactEmail || null,
+        phone: formData.phone || null,
+        username: formData.username || null,
         role: formData.role,
-        status: formData.status,
-        companyId: formData.companyId ? parseInt(formData.companyId) : undefined,
-        headquartersId: formData.headquartersId ? parseInt(formData.headquartersId) : undefined,
-        processId: formData.processId ? parseInt(formData.processId) : undefined,
-        jobTitleId: formData.jobTitleId ? parseInt(formData.jobTitleId) : undefined,
-        ...(formData.password && { password: formData.password }),
+        status: formData.isActive ? 'ACTIVE' : 'INACTIVE',
+        addressLine1: formData.addressLine1 || null,
+        addressLine2: formData.addressLine2 || null,
+        residenceCountry: locationData.country || null,
+        residenceState: locationData.state || null,
+        residenceCity: locationData.city || null,
       };
 
-      const response = isEditing 
-        ? await api.put(`/users/${userId}`, userData)
-        : await api.post('/users', userData);
-
-      if (response.status === 200 || response.status === 201) {
-        setSubmitSuccess(
-          isEditing 
-            ? 'Usuario actualizado correctamente' 
-            : 'Usuario creado correctamente'
-        );
-        
-        setTimeout(() => {
-          navigate('/users');
-        }, 2000);
+      if (isEditMode) {
+        // Remove password fields for edit mode
+        await api.put(`/users/${initialData?.documentNumber}`, userData);
+      } else {
+        userData.password = formData.password;
+        await api.post('/users', userData);
       }
+
+      onSave();
     } catch (error: any) {
-      const errorData = error.response?.data;
-      setSubmitError(errorData?.message || error.message || 'Error al guardar usuario');
-      
-      if (errorData?.errors) {
-        setErrors(errorData.errors);
-      }
+      console.error('Error saving user:', error);
+      setMessage({ 
+        type: 'error', 
+        text: error.response?.data?.message || 'Error al guardar usuario' 
+      });
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const handleCancel = () => {
-    // Si tenemos onCancel prop (modo modal), lo usamos
-    if (onCancel) {
-      onCancel();
-    } else {
-      // Si no, navegamos (modo página independiente)
-      navigate('/users');
-    }
+  const fieldStyles = {
+    '& .MuiOutlinedInput-root': {
+      backgroundColor: '#fff',
+      borderRadius: 2,
+      '& fieldset': {
+        borderColor: 'rgba(0, 0, 0, 0.23)',
+      },
+      '&:hover fieldset': {
+        borderColor: 'rgba(0, 0, 0, 0.4)',
+      },
+      '&.Mui-focused fieldset': {
+        borderColor: '#FF69B4',
+        boxShadow: '0 0 0 2px rgba(255, 105, 180, 0.2)',
+      },
+      '& input': {
+        color: '#1f1f1f',
+      },
+    },
+    '& .MuiInputLabel-root': {
+      color: 'rgba(0, 0, 0, 0.6)',
+      '&.Mui-focused': {
+        color: '#FF69B4',
+      },
+    },
   };
 
-  const handleDelete = async () => {
-    if (!isEditing || !userId) return;
-    
-    if (!window.confirm('¿Está seguro de que desea eliminar este usuario?')) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      await api.delete(`/users/${userId}`);
-      
-      setSubmitSuccess('Usuario eliminado correctamente');
-      setTimeout(() => {
-        navigate('/users');
-      }, 2000);
-    } catch (error: any) {
-      const errorData = error.response?.data;
-      setSubmitError(errorData?.message || error.message || 'Error al eliminar usuario');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const selectedCountry = countries.find(c => c.code === formData.countryCode);
-
-  // Permission checks
-  const canEditRole = () => {
-    if (!currentUser) return false;
-    if (currentUser.role === 'SUPER_ADMIN') return true;
-    if (currentUser.role === 'ADMIN') return true;
-    return false;
-  };
-
-  const getAvailableRoles = () => {
-    if (!currentUser) return [];
-    
-    if (currentUser.role === 'SUPER_ADMIN') {
-      return userRoles;
-    }
-    
-    if (currentUser.role === 'ADMIN') {
-      return userRoles.filter(role => role.value !== 'SUPER_ADMIN');
-    }
-    
-    return userRoles.filter(role => ['USER', 'SUPERVISOR'].includes(role.value));
+  const disabledFieldStyles = {
+    ...fieldStyles,
+    '& .MuiOutlinedInput-root': {
+      ...fieldStyles['& .MuiOutlinedInput-root'],
+      backgroundColor: '#f5f5f5',
+    },
   };
 
   return (
-    <Box>
-      {/* Header */}
-      <Box mb={3} display="flex" justifyContent="space-between" alignItems="center">
-        <Typography variant="h4" sx={{ fontWeight: 600 }}>
-          {isEditing ? 'Editar Usuario' : 'Crear Usuario'}
-        </Typography>
-      </Box>
-
-      {/* Success/Error Messages */}
-      {submitError && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {submitError}
-        </Alert>
-      )}
-      {submitSuccess && (
-        <Alert severity="success" sx={{ mb: 3 }}>
-          {submitSuccess}
+    <Box sx={{ p: 3 }}>
+      {message && (
+        <Alert 
+          severity={message.type} 
+          sx={{ mb: 3 }}
+          onClose={() => setMessage(null)}
+        >
+          {message.text}
         </Alert>
       )}
 
-      {/* Form */}
-      <Card>
-        <CardContent sx={{ p: 4 }}>
-          <Box component="form" onSubmit={handleSubmit}>
-            
-            {/* =============== INFORMACIÓN PERSONAL =============== */}
-            <Paper elevation={1} sx={{ p: 3, mb: 4, bgcolor: 'grey.50' }}>
-              <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center', color: 'primary.main' }}>
-                <Person sx={{ mr: 2 }} />
+      <form onSubmit={handleSubmit}>
+        <Grid container spacing={3}>
+          {/* Información Personal */}
+          <Grid item xs={12}>
+            <Typography variant="h6" sx={{ mb: 2, color: '#333', fontWeight: 600 }}>
                 Información Personal
               </Typography>
+          </Grid>
               
-              <Grid container spacing={3}>
-                {/* Nombre y Apellido en la misma fila */}
-                <Grid xs={12} md={4}>
+          <Grid item xs={12} sm={6}>
                   <TextField
-                    id="firstName"
-                    name="firstName"
-                    autoComplete="given-name"
                     fullWidth
-                    label="Nombre *"
+              label="Nombre"
                     value={formData.firstName}
-                    onChange={handleInputChange('firstName')}
-                    error={!!errors.firstName}
-                    helperText={errors.firstName}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Person color="action" />
-                        </InputAdornment>
-                      ),
-                    }}
+              onChange={(e) => handleInputChange('firstName', e.target.value)}
+              required
+              sx={fieldStyles}
+              id="firstName"
+              name="firstName"
+              autoComplete="given-name"
                   />
                 </Grid>
 
-                <Grid xs={12} md={4}>
+          <Grid item xs={12} sm={6}>
                   <TextField
-                    id="lastName"
-                    name="lastName"
-                    autoComplete="family-name"
                     fullWidth
-                    label="Apellido *"
+              label="Apellido"
                     value={formData.lastName}
-                    onChange={handleInputChange('lastName')}
-                    error={!!errors.lastName}
-                    helperText={errors.lastName}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Person color="action" />
-                        </InputAdornment>
-                      ),
-                    }}
+              onChange={(e) => handleInputChange('lastName', e.target.value)}
+              required
+              sx={fieldStyles}
+              id="lastName"
+              name="lastName"
+              autoComplete="family-name"
                   />
                 </Grid>
 
-                {/* Foto del perfil a la derecha */}
-                <Grid xs={12} md={4}>
-                  <Box display="flex" flexDirection="column" alignItems="center">
-                    <Avatar
-                      sx={{
-                        width: 80,
-                        height: 80,
-                        mb: 2,
-                        bgcolor: 'primary.main',
-                      }}
-                      src={formData.profilePicture}
-                    >
-                      {formData.firstName.charAt(0)}{formData.lastName.charAt(0)}
-                    </Avatar>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<PhotoCamera />}
-                      component="label"
-                    >
-                      Cambiar Foto
-                      <input
-                        hidden
-                        accept="image/*"
-                        type="file"
-                        onChange={(e) => {
-                          // TODO: Handle image upload
-                          console.log('Image upload:', e.target.files);
-                        }}
-                      />
-                    </Button>
-                  </Box>
-                </Grid>
-              </Grid>
-            </Paper>
-
-            {/* =============== INFORMACIÓN DE IDENTIFICACIÓN =============== */}
-            <Paper elevation={1} sx={{ p: 3, mb: 4, bgcolor: 'grey.50' }}>
-              <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center', color: 'primary.main' }}>
-                <Badge sx={{ mr: 2 }} />
-                Información de Identificación
-              </Typography>
-              
-              <Grid container spacing={3}>
-                <Grid xs={12} md={6}>
-                  <FormControl fullWidth error={!!errors.documentType}>
-                    <InputLabel id="documentType-label">Tipo de Documento *</InputLabel>
-                    <Select
-                      labelId="documentType-label"
-                      id="documentType"
-                      name="documentType"
-                      value={formData.documentType}
-                      onChange={handleInputChange('documentType')}
-                      input={<OutlinedInput label="Tipo de Documento *" />}
-                    >
-                      {documentTypes.map((type) => (
-                        <MenuItem key={type.value} value={type.value}>
-                          {type.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {errors.documentType && (
-                      <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 2 }}>
-                        {errors.documentType}
-                      </Typography>
-                    )}
-                  </FormControl>
-                </Grid>
-
-                <Grid xs={12} md={6}>
+          <Grid item xs={12} sm={6}>
                   <TextField
-                    id="documentNumber"
-                    name="documentNumber"
-                    autoComplete="off"
                     fullWidth
-                    label={isEditMode ? "Número de Documento (No editable)" : "Número de Documento *"}
-                    value={formData.documentNumber}
-                    onChange={handleInputChange('documentNumber')}
-                    disabled={isEditMode}
-                    error={!!errors.documentNumber}
-                    helperText={errors.documentNumber}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Badge color="action" />
-                        </InputAdornment>
-                      ),
-                    }}
+              label="Email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => handleInputChange('email', e.target.value)}
+              required
+              sx={fieldStyles}
+              id="email"
+              name="email"
+              autoComplete="email"
                   />
                 </Grid>
-              </Grid>
-            </Paper>
 
-            {/* =============== INFORMACIÓN DE CONTACTO =============== */}
-            <Paper elevation={1} sx={{ p: 3, mb: 4, bgcolor: 'grey.50' }}>
-              <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center', color: 'primary.main' }}>
-                <ContactPhone sx={{ mr: 2 }} />
-                Información de Contacto
-              </Typography>
-              
-              <Grid container spacing={3}>
-                {/* Email en la primera posición */}
-                <Grid xs={12} md={6}>
+          <Grid item xs={12} sm={6}>
                   <TextField
-                    id="email"
-                    name="email"
-                    autoComplete="email"
                     fullWidth
-                    label="Email *"
+              label="Correo de Contacto"
                     type="email"
-                    value={formData.email}
-                    onChange={handleInputChange('email')}
-                    error={!!errors.email}
-                    helperText={errors.email}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Email color="action" />
-                        </InputAdornment>
-                      ),
-                    }}
+              value={formData.contactEmail}
+              onChange={(e) => handleInputChange('contactEmail', e.target.value)}
+              sx={fieldStyles}
+              id="contactEmail"
+              name="contactEmail"
+              autoComplete="email"
                   />
                 </Grid>
 
-                {/* País y Teléfono */}
-                <Grid xs={12} md={3}>
-                  <FormControl fullWidth>
-                    <InputLabel id="countryCode-label">País</InputLabel>
-                  <Select
-                    labelId="countryCode-label"
-                    id="countryCode"
-                    name="countryCode"
-                      value={formData.countryCode}
-                      onChange={handleInputChange('countryCode')}
-                      input={<OutlinedInput label="País" />}
-                      renderValue={(value) => {
-                        const country = countries.find(c => c.code === value);
-                        return (
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <span style={{ marginRight: 8, fontSize: '1.2em' }}>{country?.flag}</span>
-                            {country?.phone}
-                          </Box>
-                        );
-                      }}
-                    >
-                      {countries.map((country) => (
-                        <MenuItem key={country.code} value={country.code}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                            <span style={{ marginRight: 12, fontSize: '1.2em' }}>{country.flag}</span>
-                            <Box>
-                              <Typography variant="body2">{country.name}</Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {country.phone}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                <Grid xs={12} md={3}>
-                  <TextField
-                    id="phone"
-                    name="phone"
-                    autoComplete="tel"
-                    fullWidth
+          <Grid item xs={12} sm={6}>
+            <CompactPhoneInput
+              value={formData.phone}
+              onChange={handlePhoneChange}
                     label="Teléfono"
-                    value={formData.phone}
-                    onChange={handleInputChange('phone')}
-                    error={!!errors.phone}
-                    helperText={errors.phone}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Chip
-                            size="small"
-                            label={
-                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <span style={{ marginRight: 4, fontSize: '0.9em' }}>{selectedCountry?.flag}</span>
-                                {selectedCountry?.phone}
-                              </Box>
-                            }
-                            sx={{ mr: 1 }}
-                          />
-                        </InputAdornment>
-                      ),
-                    }}
                   />
                 </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth required>
+              <InputLabel id="role-label">Rol</InputLabel>
+                    <Select
+                labelId="role-label"
+                id="role"
+                name="role"
+                value={formData.role}
+                label="Rol"
+                onChange={(e) => handleInputChange('role', e.target.value)}
+                sx={fieldStyles}
+              >
+                {options.roles.map((role) => (
+                  <MenuItem key={role.value} value={role.value}>
+                    {role.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+          <Grid item xs={12}>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="h6" sx={{ mb: 2, color: '#333', fontWeight: 600 }}>
+              Documento de Identidad
+            </Typography>
+                </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth required>
+              <InputLabel id="document-type-label">Tipo de Documento</InputLabel>
+                    <Select
+                labelId="document-type-label"
+                id="documentType"
+                name="documentType"
+                value={options.documentTypes.some(dt => dt.value === formData.documentType) ? formData.documentType : ''}
+                label="Tipo de Documento"
+                onChange={(e) => handleInputChange('documentType', e.target.value)}
+                sx={fieldStyles}
+              >
+                {options.documentTypes.map((type) => (
+                  <MenuItem key={type.value} value={type.value}>
+                    {type.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Número de Documento"
+              value={formData.documentNumber}
+              onChange={(e) => handleInputChange('documentNumber', e.target.value)}
+              required
+              disabled={isEditMode}
+              sx={isEditMode ? disabledFieldStyles : fieldStyles}
+              id="documentNumber"
+              name="documentNumber"
+              autoComplete="off"
+            />
               </Grid>
-            </Paper>
 
-            {/* =============== INFORMACIÓN ORGANIZACIONAL =============== */}
-            <Paper elevation={1} sx={{ p: 3, mb: 4, bgcolor: 'grey.50' }}>
-              <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center', color: 'primary.main' }}>
-                <Business sx={{ mr: 2 }} />
-                Información Organizacional
-              </Typography>
-              
-              <Grid container spacing={3}>
-                {/* Empresa y Sede */}
-                <Grid xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel id="companyId-label">Empresa</InputLabel>
-                  <Select
-                    labelId="companyId-label"
-                    id="companyId"
-                    name="companyId"
-                      value={companies.some((c) => c.id?.toString() === formData.companyId) ? formData.companyId : ''}
-                      onChange={handleInputChange('companyId')}
-                      input={<OutlinedInput label="Empresa" />}
-                    >
-                      <MenuItem value="">
-                        <em>Ninguna</em>
-                      </MenuItem>
-                      {companies.map((company) => (
-                        <MenuItem key={company.id} value={company.id.toString()}>
-                          {company.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                <Grid xs={12} md={6}>
-                  <FormControl fullWidth disabled={!formData.companyId}>
-                    <InputLabel id="headquartersId-label">Sede</InputLabel>
-                  <Select
-                    labelId="headquartersId-label"
-                    id="headquartersId"
-                    name="headquartersId"
-                      value={filteredHeadquarters.some((hq) => hq.id?.toString() === formData.headquartersId) ? formData.headquartersId : ''}
-                      onChange={handleInputChange('headquartersId')}
-                      input={<OutlinedInput label="Sede" />}
-                    >
-                      <MenuItem value="">
-                        <em>Ninguna</em>
-                      </MenuItem>
-                      {filteredHeadquarters.map((hq) => (
-                        <MenuItem key={hq.id} value={hq.id.toString()}>
-                          {hq.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                {/* Proceso y Cargo */}
-                <Grid xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel id="processId-label">Proceso</InputLabel>
-                  <Select
-                    labelId="processId-label"
-                    id="processId"
-                    name="processId"
-                      value={processes.some((p) => p.id?.toString() === formData.processId) ? formData.processId : ''}
-                      onChange={handleInputChange('processId')}
-                      input={<OutlinedInput label="Proceso" />}
-                    >
-                      <MenuItem value="">
-                        <em>Ninguno</em>
-                      </MenuItem>
-                      {processes.map((process) => (
-                        <MenuItem key={process.id} value={process.id.toString()}>
-                          {process.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                <Grid xs={12} md={6}>
-                  <FormControl fullWidth disabled={!formData.processId}>
-                    <InputLabel id="jobTitleId-label">Cargo</InputLabel>
-                  <Select
-                    labelId="jobTitleId-label"
-                    id="jobTitleId"
-                    name="jobTitleId"
-                      value={filteredJobTitles.some((jt) => jt.id?.toString() === formData.jobTitleId) ? formData.jobTitleId : ''}
-                      onChange={handleInputChange('jobTitleId')}
-                      input={<OutlinedInput label="Cargo" />}
-                    >
-                      <MenuItem value="">
-                        <em>Ninguno</em>
-                      </MenuItem>
-                      {filteredJobTitles.map((jobTitle) => (
-                        <MenuItem key={jobTitle.id} value={jobTitle.id.toString()}>
-                          {jobTitle.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </Grid>
-            </Paper>
-
-            {/* =============== SEGURIDAD Y PERMISOS =============== */}
-            <Paper elevation={1} sx={{ p: 3, mb: 4, bgcolor: 'grey.50' }}>
-              <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center', color: 'primary.main' }}>
-                <Security sx={{ mr: 2 }} />
-                Seguridad y Permisos
-              </Typography>
-              
-              <Grid container spacing={3}>
-                {/* Username y Rol */}
-                <Grid xs={12} md={6}>
+          <Grid item xs={12} sm={6}>
                   <TextField
-                    id="username"
-                    name="username"
-                    autoComplete="username"
                     fullWidth
-                    label={isEditMode ? "Nombre de Usuario (No editable)" : "Nombre de Usuario (Opcional)"}
+              label="Nombre de Usuario"
                     value={formData.username}
-                    onChange={handleInputChange('username')}
+              onChange={(e) => handleInputChange('username', e.target.value)}
+              required={!isEditMode}
                     disabled={isEditMode}
-                    error={!!errors.username}
-                    helperText={isEditMode ? 'El nombre de usuario no se puede cambiar' : (errors.username || 'Deje en blanco para usar el email como nombre de usuario')}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <AccountCircle color="action" />
-                        </InputAdornment>
-                      ),
-                    }}
+              sx={isEditMode ? disabledFieldStyles : fieldStyles}
+              id="username"
+              name="username"
+              autoComplete="username"
                   />
                 </Grid>
 
-                {canEditRole() && (
-                  <Grid xs={12} md={6}>
-                    <FormControl fullWidth>
-                      <InputLabel id="role-label">Rol</InputLabel>
-                      <Select
-                        labelId="role-label"
-                        id="role"
-                        name="role"
-                        value={formData.role}
-                        onChange={handleInputChange('role')}
-                        input={<OutlinedInput label="Rol" />}
-                      >
-                        {getAvailableRoles().map((role) => (
-                          <MenuItem key={role.value} value={role.value}>
-                            {role.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                )}
-
-                {/* Contraseña y Confirmar Contraseña */}
-                {(isCreating || showPassword) && (
-                  <>
-                    <Grid xs={12} md={6}>
+          {!isEditMode && (
+            <>
+              <Grid item xs={12} sm={6}>
                       <TextField
-                        id="password"
-                        name="password"
-                        autoComplete="new-password"
                         fullWidth
-                        label={isCreating ? "Contraseña *" : "Nueva Contraseña"}
-                        type={showPassword ? 'text' : 'password'}
+                  label="Contraseña"
+                  type="password"
                         value={formData.password}
-                        onChange={handleInputChange('password')}
-                        error={!!errors.password}
-                        helperText={errors.password}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <Lock color="action" />
-                            </InputAdornment>
-                          ),
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                onClick={() => setShowPassword(!showPassword)}
-                                edge="end"
-                              >
-                                {showPassword ? <VisibilityOff /> : <Visibility />}
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  required
+                  sx={fieldStyles}
+                  id="password"
+                  name="password"
+                  autoComplete="new-password"
                       />
                     </Grid>
 
-                    <Grid xs={12} md={6}>
+              <Grid item xs={12} sm={6}>
                       <TextField
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        autoComplete="new-password"
                         fullWidth
-                        label={isCreating ? "Confirmar Contraseña *" : "Confirmar Nueva Contraseña"}
-                        type={showConfirmPassword ? 'text' : 'password'}
+                  label="Confirmar Contraseña"
+                  type="password"
                         value={formData.confirmPassword}
-                        onChange={handleInputChange('confirmPassword')}
-                        error={!!errors.confirmPassword}
-                        helperText={errors.confirmPassword}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <Lock color="action" />
-                            </InputAdornment>
-                          ),
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                edge="end"
-                              >
-                                {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
+                  onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                  required
+                  sx={fieldStyles}
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  autoComplete="new-password"
                       />
                     </Grid>
                   </>
                 )}
 
-                {isEditing && !showPassword && (
-                  <Grid xs={12} md={6}>
-                    <Button
-                      variant="outlined"
-                      onClick={() => setShowPassword(true)}
-                      fullWidth
-                      sx={{ height: '56px' }}
-                    >
-                      Cambiar Contraseña
-                    </Button>
-                  </Grid>
-                )}
+          <Grid item xs={12}>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="h6" sx={{ mb: 2, color: '#333', fontWeight: 600 }}>
+              Dirección
+            </Typography>
+          </Grid>
 
-                {/* Estado */}
-                <Grid xs={12} md={6}>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Dirección Línea 1"
+              value={formData.addressLine1}
+              onChange={(e) => handleInputChange('addressLine1', e.target.value)}
+              sx={fieldStyles}
+              id="addressLine1"
+              name="addressLine1"
+              autoComplete="address-line1"
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <TextField
+                      fullWidth
+              label="Dirección Línea 2"
+              value={formData.addressLine2}
+              onChange={(e) => handleInputChange('addressLine2', e.target.value)}
+              sx={fieldStyles}
+              id="addressLine2"
+              name="addressLine2"
+              autoComplete="address-line2"
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <SecureLocationSelectors
+              value={locationData}
+              onChange={handleLocationChange}
+              label="Ubicación"
+              enableDynamicLoading={false}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="h6" sx={{ mb: 2, color: '#333', fontWeight: 600 }}>
+              Estado del Usuario
+            </Typography>
+                  </Grid>
+
+          <Grid item xs={12} sm={6}>
                   <FormControl fullWidth>
-                    <InputLabel id="status-label">Estado</InputLabel>
+              <InputLabel id="status-label">Estado</InputLabel>
                     <Select
-                      labelId="status-label"
-                      id="status"
-                      name="status"
-                      value={formData.status}
-                      onChange={handleInputChange('status')}
-                      input={<OutlinedInput label="Estado" />}
-                    >
-                      <MenuItem value="ACTIVE">Activo</MenuItem>
-                      <MenuItem value="INACTIVE">Inactivo</MenuItem>
+                labelId="status-label"
+                id="isActive"
+                name="isActive"
+                value={formData.isActive ? 'active' : 'inactive'}
+                label="Estado"
+                onChange={(e) => handleInputChange('isActive', e.target.value === 'active' ? 'true' : 'false')}
+                sx={fieldStyles}
+              >
+                <MenuItem value="active">Activo</MenuItem>
+                <MenuItem value="inactive">Inactivo</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
               </Grid>
-            </Paper>
 
-            {/* =============== BOTONES DE ACCIÓN =============== */}
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+        <DialogActions sx={{ mt: 4, px: 0 }}>
               <Button
+            onClick={onCancel}
+            startIcon={<CancelIcon />}
                 variant="outlined"
-                onClick={handleCancel}
-                startIcon={<CancelIcon />}
-                disabled={loading}
+            sx={{
+              borderColor: '#FF6B6B',
+              color: '#FF6B6B',
+              '&:hover': {
+                borderColor: '#FF5A5A',
+                backgroundColor: 'rgba(255, 107, 107, 0.04)',
+              },
+            }}
               >
                 Cancelar
               </Button>
-              
-              {isEditing && (
-                <Button
-                  variant="outlined"
-                  color="error"
-                  onClick={handleDelete}
-                  startIcon={<DeleteIcon />}
-                  disabled={loading}
-                >
-                  Eliminar
-                </Button>
-              )}
-              
               <Button
                 type="submit"
                 variant="contained"
-                disabled={loading}
-                startIcon={<SaveIcon />}
-              >
-                {loading 
-                  ? (isEditing ? 'Actualizando...' : 'Creando...')
-                  : (isEditing ? 'Actualizar Usuario' : 'Crear Usuario')
-                }
+            startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
+            disabled={saving}
+            sx={{
+              background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E6B 100%)',
+              color: 'white',
+              px: 4,
+              py: 1.5,
+              borderRadius: 2,
+              fontWeight: 600,
+              '&:hover': {
+                background: 'linear-gradient(135deg, #FF5A5A 0%, #FF7D5A 100%)',
+              },
+              '&:disabled': {
+                background: '#ccc',
+              },
+            }}
+          >
+            {saving ? 'Guardando...' : (isEditMode ? 'Actualizar' : 'Crear')}
               </Button>
-            </Box>
-          </Box>
-        </CardContent>
-      </Card>
+        </DialogActions>
+      </form>
     </Box>
   );
 };

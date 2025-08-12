@@ -21,6 +21,7 @@ import {
 } from '@mui/icons-material';
 import { Outlet, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, CONTENT_GAP } from './layoutConstants';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface MainLayoutProps {
@@ -86,7 +87,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           // Cubrir toda la pantalla desde el borde izquierdo
           left: 0,
           right: 0,
-          width: '100vw',
+          width: '100%',
         }}
       >
           <Toolbar sx={{ justifyContent: 'flex-end', minHeight: '64px !important' }}>
@@ -198,7 +199,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             duration: theme.transitions.duration.enteringScreen,
           }),
           ...(sidebarOpen && !isMobile && {
-            marginLeft: sidebarCollapsed ? '70px' : '280px',
+            // Margen mínimo junto al sidebar como te gustó visualmente
+            marginLeft: sidebarCollapsed ? '70px' : '10px',
           }),
         }}
       >
@@ -206,7 +208,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <Box
           sx={{
             flexGrow: 1,
-            p: 1, // Reducido de 3 a 1 para menos separación
+            p: { xs: 1, md: 2 },
             overflow: 'auto',
             backgroundColor: '#ffffff',
             minHeight: 'calc(100vh - 64px)', // Altura total menos AppBar
