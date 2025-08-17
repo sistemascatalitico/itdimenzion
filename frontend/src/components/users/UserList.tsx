@@ -33,6 +33,20 @@ import {
   Select as MuiSelect,
   MenuItem as MuiMenuItem,
   TextField,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Divider,
+  Switch,
+  Menu,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Grid,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -42,6 +56,13 @@ import {
   Refresh as RefreshIcon,
   Build as WrenchIcon,
   DoneAll as DoneAllIcon,
+  DragIndicator as DragIcon,
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
+  FileDownload as ExportIcon,
+  FilterList as FilterIcon,
+  MoreVert as MoreVertIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../config/api';
@@ -111,31 +132,32 @@ interface ColumnConfig {
   key: ColumnKey;
   label: string;
   defaultVisible: boolean;
+  order: number;
 }
 
 const COLUMN_OPTIONS: ColumnConfig[] = [
-  { key: 'usuario', label: 'Usuario', defaultVisible: true },
-  { key: 'documento', label: 'Documento', defaultVisible: true },
-  { key: 'email', label: 'Email', defaultVisible: true },
-  { key: 'telefono', label: 'Teléfono', defaultVisible: true },
-  { key: 'rol', label: 'Rol', defaultVisible: true },
-  { key: 'empresa', label: 'Empresa', defaultVisible: true },
-  { key: 'estado', label: 'Estado', defaultVisible: true },
-  { key: 'sede', label: 'Sede', defaultVisible: false },
-  { key: 'cargo', label: 'Cargo', defaultVisible: false },
-  { key: 'ultimoAcceso', label: 'Último acceso', defaultVisible: false },
-  { key: 'creado', label: 'Creado', defaultVisible: false },
-  { key: 'actualizado', label: 'Actualizado', defaultVisible: false },
-  { key: 'pais', label: 'País', defaultVisible: false },
-  { key: 'departamento', label: 'Departamento/Estado', defaultVisible: false },
-  { key: 'ciudad', label: 'Ciudad', defaultVisible: false },
-  { key: 'direccion1', label: 'Dirección 1', defaultVisible: false },
-  { key: 'direccion2', label: 'Dirección 2', defaultVisible: false },
-  { key: 'comentario', label: 'Comentario', defaultVisible: false },
-  { key: 'acciones', label: 'Acciones', defaultVisible: true },
+  { key: 'usuario', label: 'Usuario', defaultVisible: true, order: 1 },
+  { key: 'documento', label: 'Documento', defaultVisible: true, order: 2 },
+  { key: 'email', label: 'Email', defaultVisible: true, order: 3 },
+  { key: 'telefono', label: 'Teléfono', defaultVisible: true, order: 4 },
+  { key: 'rol', label: 'Rol', defaultVisible: true, order: 5 },
+  { key: 'empresa', label: 'Empresa', defaultVisible: true, order: 6 },
+  { key: 'estado', label: 'Estado', defaultVisible: true, order: 7 },
+  { key: 'sede', label: 'Sede', defaultVisible: false, order: 8 },
+  { key: 'cargo', label: 'Cargo', defaultVisible: false, order: 9 },
+  { key: 'ultimoAcceso', label: 'Último acceso', defaultVisible: false, order: 10 },
+  { key: 'creado', label: 'Creado', defaultVisible: false, order: 11 },
+  { key: 'actualizado', label: 'Actualizado', defaultVisible: false, order: 12 },
+  { key: 'pais', label: 'País', defaultVisible: false, order: 13 },
+  { key: 'departamento', label: 'Departamento/Estado', defaultVisible: false, order: 14 },
+  { key: 'ciudad', label: 'Ciudad', defaultVisible: false, order: 15 },
+  { key: 'direccion1', label: 'Dirección 1', defaultVisible: false, order: 16 },
+  { key: 'direccion2', label: 'Dirección 2', defaultVisible: false, order: 17 },
+  { key: 'comentario', label: 'Comentario', defaultVisible: false, order: 18 },
+  { key: 'acciones', label: 'Acciones', defaultVisible: true, order: 19 },
 ];
 
-const VISIBLE_COLUMNS_STORAGE_KEY = 'itd_userlist_columns';
+const COLUMNS_CONFIG_STORAGE_KEY = 'itd_userlist_columns_config';
 
 const UserList: React.FC = () => {
   const { user: currentUser } = useAuth();
@@ -146,20 +168,27 @@ const UserList: React.FC = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [columnsVisibility, setColumnsVisibility] = useState<Record<ColumnKey, boolean>>(() => {
-    try {
-      const saved = localStorage.getItem(VISIBLE_COLUMNS_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    const initial: Record<ColumnKey, boolean> = COLUMN_OPTIONS.reduce((acc, c) => {
-      acc[c.key] = c.defaultVisible;
-      return acc;
-    }, {} as Record<ColumnKey, boolean>);
-    return initial;
-  });
+  const [columnsConfig, setColumnsConfig] = useState<ColumnConfig[]>(COLUMN_OPTIONS);
   const [columnsDialogOpen, setColumnsDialogOpen] = useState(false);
   const [bulkRole, setBulkRole] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showDeletedUsers, setShowDeletedUsers] = useState(false);
+  const [filterCompany, setFilterCompany] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<string>('');
+  const [filterCity, setFilterCity] = useState<string>('');
+  const [filterHeadquarters, setFilterHeadquarters] = useState<string>('');
+  const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
+  const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null);
+  const [bulkEditData, setBulkEditData] = useState({
+    company: '',
+    headquarters: '',
+    jobTitle: '',
+    residenceCountry: '',
+    residenceState: '',
+    residenceCity: '',
+    commentary: '',
+    role: ''
+  });
 
   const loadUsers = useCallback(async (params?: { search?: string }) => {
     try {
@@ -186,17 +215,23 @@ const UserList: React.FC = () => {
     loadUsers();
   }, [loadUsers]);
 
+  useEffect(() => {
+    try { 
+      localStorage.setItem(COLUMNS_CONFIG_STORAGE_KEY, JSON.stringify(columnsConfig)); 
+    } catch (e) {
+      console.warn('Could not save column configuration:', e);
+    }
+  }, [columnsConfig]);
+
+
+
   const handleOpenModal = useCallback((user?: User, edit = false) => {
     setSelectedUser(user || null);
     setIsEditMode(edit);
     setModalOpen(true);
-    // Blur any focused element to prevent aria-hidden warnings
-    document.activeElement?.blur();
   }, []);
 
   const handleCloseModal = useCallback(() => {
-    // Evita que quede foco en elementos dentro del diálogo al cerrar
-    try { (document.activeElement as HTMLElement | null)?.blur?.(); } catch {}
     setModalOpen(false);
     setSelectedUser(null);
     setIsEditMode(false);
@@ -209,6 +244,12 @@ const UserList: React.FC = () => {
   }, [handleCloseModal, loadUsers, isEditMode]);
 
   const handleDeleteUser = useCallback(async (userId: string) => {
+    // Prevent deleting SUPER_ADMIN users
+    const target = users.find(u => u.documentNumber === userId);
+    if (target?.role === 'SUPER_ADMIN') {
+      setMessage({ type: 'error', text: 'No se permite eliminar usuarios SUPER_ADMIN' });
+      return;
+    }
     if (!window.confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
       return;
     }
@@ -224,7 +265,7 @@ const UserList: React.FC = () => {
         text: error.response?.data?.message || 'Error al eliminar usuario' 
       });
     }
-  }, [loadUsers]);
+  }, [loadUsers, users]);
 
   const allSelectedOnPage = useMemo(() => {
     if (users.length === 0) return false;
@@ -235,34 +276,78 @@ const UserList: React.FC = () => {
     return users.some(u => selectedIds.has(u.documentNumber)) && !allSelectedOnPage;
   }, [users, selectedIds, allSelectedOnPage]);
 
-  const toggleSelectAllOnPage = () => {
-    const next = new Set(selectedIds);
-    if (allSelectedOnPage) {
-      users.forEach(u => next.delete(u.documentNumber));
-    } else {
-      users.forEach(u => next.add(u.documentNumber));
-    }
-    setSelectedIds(next);
-  };
+  const toggleSelectAllOnPage = useCallback(() => {
+    setSelectedIds(prevSelected => {
+      const newSelected = new Set(prevSelected);
+      if (allSelectedOnPage) {
+        // Deseleccionar todos los usuarios de la página actual
+        users.forEach(u => newSelected.delete(u.documentNumber));
+      } else {
+        // Seleccionar todos los usuarios de la página actual
+        users.forEach(u => newSelected.add(u.documentNumber));
+      }
+      return newSelected;
+    });
+  }, [allSelectedOnPage, users]);
 
-  const toggleSelectOne = (id: string) => {
-    const next = new Set(selectedIds);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    setSelectedIds(next);
-  };
+  const toggleSelectOne = useCallback((id: string) => {
+    console.log('CHECKBOX CLICKED:', id);
+    setSelectedIds(prevSelected => {
+      const newSelected = new Set(prevSelected);
+      if (newSelected.has(id)) {
+        newSelected.delete(id);
+        console.log('REMOVED:', id);
+      } else {
+        newSelected.add(id);
+        console.log('ADDED:', id);
+      }
+      console.log('TOTAL SELECTED:', newSelected.size);
+      return newSelected;
+    });
+  }, []);
 
-  const handleToggleColumn = (key: ColumnKey) => {
-    const next = { ...columnsVisibility, [key]: !columnsVisibility[key] };
-    setColumnsVisibility(next);
-    try { localStorage.setItem(VISIBLE_COLUMNS_STORAGE_KEY, JSON.stringify(next)); } catch {}
-  };
+  const handleToggleColumn = useCallback((key: ColumnKey) => {
+    setColumnsConfig(prev => 
+      prev.map(col => 
+        col.key === key ? { ...col, defaultVisible: !col.defaultVisible } : col
+      )
+    );
+  }, []);
 
-  const visible = (key: ColumnKey) => columnsVisibility[key];
+  const handleMoveColumn = useCallback((fromIndex: number, toIndex: number) => {
+    setColumnsConfig(prev => {
+      const newConfig = [...prev];
+      const [movedItem] = newConfig.splice(fromIndex, 1);
+      newConfig.splice(toIndex, 0, movedItem);
+      
+      // Actualizar el orden
+      newConfig.forEach((col, index) => {
+        col.order = index + 1;
+      });
+      
+      return newConfig;
+    });
+  }, []);
 
-  const openColumnsDialog = () => {
-    try { (document.activeElement as HTMLElement | null)?.blur?.(); } catch {}
+  const getVisibleColumns = useMemo(() => {
+    return columnsConfig
+      .filter(col => col.defaultVisible)
+      .sort((a, b) => a.order - b.order);
+  }, [columnsConfig]);
+
+
+
+  const openColumnsDialog = useCallback(() => {
     setColumnsDialogOpen(true);
-  };
+  }, []);
+
+  const resetColumns = useCallback(() => {
+    setColumnsConfig(COLUMN_OPTIONS);
+  }, []);
+
+  const closeColumnsDialog = useCallback(() => {
+    setColumnsDialogOpen(false);
+  }, []);
 
   const runBulk = async (action: 'activate' | 'deactivate' | 'delete' | 'role') => {
     const ids = Array.from(selectedIds);
@@ -272,9 +357,11 @@ const UserList: React.FC = () => {
       const promises: Promise<any>[] = [];
       if (action === 'delete') {
         ids.forEach(id => {
-          if (id !== currentUser?.documentNumber) {
-            promises.push(api.delete(`/users/${id}`));
-          }
+          const u = users.find(x => x.documentNumber === id);
+          // Skip deleting SUPER_ADMIN and self
+          if (u?.role === 'SUPER_ADMIN') return;
+          if (id === currentUser?.documentNumber) return;
+          promises.push(api.delete(`/users/${id}`));
         });
       } else if (action === 'activate' || action === 'deactivate') {
         const desired = action === 'activate' ? 'ACTIVE' : 'INACTIVE';
@@ -304,7 +391,154 @@ const UserList: React.FC = () => {
   };
 
   const handleSearch = () => {
-    loadUsers({ search: searchTerm.trim() || undefined });
+    const params: any = { search: searchTerm.trim() || undefined };
+    if (showDeletedUsers) params.deleted = true;
+    if (filterCompany) params.company = filterCompany;
+    if (filterStatus) params.status = filterStatus;
+    if (filterCity) params.city = filterCity;
+    if (filterHeadquarters) params.headquarters = filterHeadquarters;
+    loadUsers(params);
+  };
+
+  const exportToCSV = () => {
+    const headers = getVisibleColumns.map(col => col.label).join(',');
+    const rows = users.map(user => {
+      return getVisibleColumns.map(col => {
+        switch (col.key) {
+          case 'usuario': return `"${user.firstName} ${user.lastName}"`;
+          case 'documento': return `"${user.documentType}: ${user.documentNumber}"`;
+          case 'email': return `"${user.email}"`;
+          case 'telefono': return `"${user.phone || '-'}"`;
+          case 'rol': return `"${user.role}"`;
+          case 'empresa': return `"${user.company?.name || '-'}"`;
+          case 'estado': return `"${user.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}"`;
+          default: return '""';
+        }
+      }).join(',');
+    }).join('\n');
+    
+    const csvContent = `${headers}\n${rows}`;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `usuarios_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
+  const exportToPDF = () => {
+    // Implementación básica de PDF
+    const content = users.map(user => 
+      `${user.firstName} ${user.lastName} - ${user.email} - ${user.role}`
+    ).join('\n');
+    
+    const blob = new Blob([content], { type: 'text/plain' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `usuarios_${new Date().toISOString().split('T')[0]}.txt`;
+    link.click();
+  };
+
+  const exportToHTML = () => {
+    const htmlContent = `
+      <html>
+        <head>
+          <title>Lista de Usuarios</title>
+          <style>
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+          </style>
+        </head>
+        <body>
+          <h1>Lista de Usuarios</h1>
+          <table>
+            <thead>
+              <tr>
+                ${getVisibleColumns.map(col => `<th>${col.label}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${users.map(user => `
+                <tr>
+                  ${getVisibleColumns.map(col => {
+                    switch (col.key) {
+                      case 'usuario': return `<td>${user.firstName} ${user.lastName}</td>`;
+                      case 'documento': return `<td>${user.documentType}: ${user.documentNumber}</td>`;
+                      case 'email': return `<td>${user.email}</td>`;
+                      case 'telefono': return `<td>${user.phone || '-'}</td>`;
+                      case 'rol': return `<td>${user.role}</td>`;
+                      case 'empresa': return `<td>${user.company?.name || '-'}</td>`;
+                      case 'estado': return `<td>${user.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}</td>`;
+                      default: return `<td>-</td>`;
+                    }
+                  }).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+    
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `usuarios_${new Date().toISOString().split('T')[0]}.html`;
+    link.click();
+  };
+
+  const handleBulkEdit = async () => {
+    const selectedUsers = users.filter(user => selectedIds.has(user.documentNumber));
+    const updates = selectedUsers.map(user => ({
+      documentNumber: user.documentNumber,
+      ...bulkEditData
+    }));
+
+    try {
+      await Promise.all(updates.map(update => 
+        api.put(`/users/${update.documentNumber}`, update)
+      ));
+      setMessage({ type: 'success', text: 'Usuarios actualizados exitosamente' });
+      setBulkEditDialogOpen(false);
+      setBulkEditData({
+        company: '',
+        headquarters: '',
+        jobTitle: '',
+        residenceCountry: '',
+        residenceState: '',
+        residenceCity: '',
+        commentary: '',
+        role: ''
+      });
+      loadUsers();
+    } catch (error: any) {
+      setMessage({ type: 'error', text: 'Error al actualizar usuarios' });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const selectedUsers = users.filter(user => selectedIds.has(user.documentNumber));
+    const superAdmins = selectedUsers.filter(user => user.role === 'SUPER_ADMIN');
+    
+    if (superAdmins.length > 0) {
+      setMessage({ type: 'error', text: 'No se pueden eliminar usuarios SUPER_ADMIN' });
+      return;
+    }
+
+    if (!window.confirm(`¿Estás seguro de que deseas eliminar ${selectedUsers.length} usuarios?`)) {
+      return;
+    }
+
+    try {
+      await Promise.all(selectedUsers.map(user => 
+        api.delete(`/users/${user.documentNumber}`)
+      ));
+      setMessage({ type: 'success', text: 'Usuarios eliminados exitosamente' });
+      setSelectedIds(new Set());
+      loadUsers();
+    } catch (error: any) {
+      setMessage({ type: 'error', text: 'Error al eliminar usuarios' });
+    }
   };
 
   const getRoleColor = (role: string) => {
@@ -330,9 +564,9 @@ const UserList: React.FC = () => {
     return (
       <Box
         sx={{
-          display: 'flex',
+        display: 'flex', 
           justifyContent: 'center',
-          alignItems: 'center',
+        alignItems: 'center',
           minHeight: '60vh',
         }}
       >
@@ -341,7 +575,7 @@ const UserList: React.FC = () => {
     );
   }
 
-  return (
+    return (
     <Box
       sx={{
         p: 0,
@@ -368,7 +602,7 @@ const UserList: React.FC = () => {
             color: 'white',
           }}
         >
-    <Box>
+      <Box>
             <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
             Gestión de Usuarios
           </Typography>
@@ -403,34 +637,86 @@ const UserList: React.FC = () => {
             </Alert>
           )}
 
-          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" sx={{ color: '#333', fontWeight: 600 }}>
-              Lista de Usuarios ({users.length})
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              {selectedIds.size > 0 && (
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mr: 1 }}>
-                  <Button size="small" variant="contained" color="success" onClick={() => runBulk('activate')}>Activar</Button>
-                  <Button size="small" variant="outlined" color="warning" onClick={() => runBulk('deactivate')}>Desactivar</Button>
-                  <MuiSelect
-                    size="small"
-                    value={bulkRole}
-                    onChange={(e) => setBulkRole(e.target.value)}
-                    displayEmpty
-                    sx={{ minWidth: 160, backgroundColor: '#fff' }}
-                    MenuProps={{ disablePortal: true }}
-                  >
-                    <MuiMenuItem value=""><em>Cambiar rol…</em></MuiMenuItem>
-                    <MuiMenuItem value="SUPER_ADMIN">Super Admin</MuiMenuItem>
-                    <MuiMenuItem value="ADMIN">Admin</MuiMenuItem>
-                    <MuiMenuItem value="SUPERVISOR">Supervisor</MuiMenuItem>
-                    <MuiMenuItem value="USER">User</MuiMenuItem>
-                  </MuiSelect>
-                  <Button size="small" variant="outlined" startIcon={<DoneAllIcon />} onClick={() => runBulk('role')}>Aplicar</Button>
-                  <Button size="small" color="error" variant="outlined" onClick={() => runBulk('delete')}>Eliminar</Button>
-                </Box>
-              )}
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mr: 1 }}>
+          <Box sx={{ mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" sx={{ color: '#333', fontWeight: 600 }}>
+                Lista de Usuarios ({users.length})
+              </Typography>
+            </Box>
+
+            {/* Barra de acciones y búsqueda */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              {/* Botones de acciones masivas (izquierda) */}
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                {selectedIds.size > 0 && (
+                  <>
+                    <Button 
+                      size="small" 
+                      variant="contained" 
+                      color="success" 
+                      onClick={() => runBulk('activate')}
+                    >
+                      Activar ({selectedIds.size})
+                    </Button>
+                    <Button 
+                      size="small" 
+                      variant="outlined" 
+                      color="warning" 
+                      onClick={() => runBulk('deactivate')}
+                    >
+                      Desactivar
+                    </Button>
+                    <Button 
+                      size="small" 
+                      variant="outlined" 
+                      color="primary" 
+                      onClick={() => setBulkEditDialogOpen(true)}
+                    >
+                      Modificar
+                    </Button>
+                    <Button 
+                      size="small" 
+                      color="error" 
+                      variant="outlined" 
+                      onClick={handleBulkDelete}
+                    >
+                      Eliminar
+                    </Button>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => setExportMenuAnchor(e.currentTarget)}
+                      sx={{ color: '#FF6B6B' }}
+                      title="Exportar"
+                    >
+                      <ExportIcon />
+                    </IconButton>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => {
+                        // Aquí se implementaría la funcionalidad de importar
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = '.csv,.xlsx,.xls';
+                        input.onchange = (e) => {
+                          const file = (e.target as HTMLInputElement).files?.[0];
+                          if (file) {
+                            console.log('Archivo seleccionado para importar:', file.name);
+                            // Aquí se procesaría el archivo
+                          }
+                        };
+                        input.click();
+                      }}
+                      sx={{ color: '#FF6B6B', borderColor: '#FF6B6B' }}
+                    >
+                      Importar
+                    </Button>
+                  </>
+                )}
+              </Box>
+
+              {/* Búsqueda y filtros (derecha) */}
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 <TextField
                   size="small"
                   placeholder="Buscar usuario..."
@@ -439,28 +725,69 @@ const UserList: React.FC = () => {
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
                   sx={{ backgroundColor: '#fff', borderRadius: 1, minWidth: 220 }}
                 />
-                <Button size="small" variant="outlined" onClick={handleSearch}>Buscar</Button>
+                <Button size="small" variant="outlined" onClick={handleSearch}>
+                  Buscar
+                </Button>
+                
+                {/* Filtro desplegable */}
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <MuiSelect
+                    value=""
+                    displayEmpty
+                    onChange={(e) => {
+                      // Aquí se manejaría el filtro seleccionado
+                      console.log('Filtro seleccionado:', e.target.value);
+                    }}
+                    sx={{ backgroundColor: '#fff' }}
+                  >
+                    <MuiMenuItem value="" disabled>
+                      <em>Filtrar por...</em>
+                    </MuiMenuItem>
+                    <MuiMenuItem value="estado">Estado</MuiMenuItem>
+                    <MuiMenuItem value="empresa">Empresa</MuiMenuItem>
+                    <MuiMenuItem value="rol">Rol</MuiMenuItem>
+                    <MuiMenuItem value="ciudad">Ciudad</MuiMenuItem>
+                    <MuiMenuItem value="sede">Sede</MuiMenuItem>
+                    <MuiMenuItem value="cargo">Cargo</MuiMenuItem>
+                    <MuiMenuItem value="pais">País</MuiMenuItem>
+                    <MuiMenuItem value="departamento">Departamento</MuiMenuItem>
+                  </MuiSelect>
+                </FormControl>
+
+                <Tooltip title="Columnas visibles">
+                  <IconButton onClick={openColumnsDialog} sx={{ color: '#FF6B6B' }}>
+                    <WrenchIcon />
+                  </IconButton>
+                </Tooltip>
+                <Button
+                  startIcon={<RefreshIcon />}
+                  onClick={() => loadUsers()}
+                  variant="outlined"
+                  sx={{
+                    borderColor: '#FF6B6B',
+                    color: '#FF6B6B',
+                    '&:hover': {
+                      borderColor: '#FF5A5A',
+                      backgroundColor: 'rgba(255, 107, 107, 0.04)',
+                    },
+                  }}
+                >
+                  Actualizar
+                </Button>
               </Box>
-              <Tooltip title="Columnas visibles">
-                <IconButton onClick={openColumnsDialog} sx={{ color: '#FF6B6B' }}>
-                  <WrenchIcon />
-                </IconButton>
-              </Tooltip>
-              <Button
-                startIcon={<RefreshIcon />}
-                onClick={loadUsers}
-                variant="outlined"
-                sx={{
-                  borderColor: '#FF6B6B',
-                  color: '#FF6B6B',
-                  '&:hover': {
-                    borderColor: '#FF5A5A',
-                    backgroundColor: 'rgba(255, 107, 107, 0.04)',
-                  },
-                }}
-              >
-                Actualizar
-              </Button>
+            </Box>
+
+            {/* Checkbox para usuarios eliminados */}
+            <Box sx={{ mb: 2 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={showDeletedUsers}
+                    onChange={(e) => setShowDeletedUsers(e.target.checked)}
+                  />
+                }
+                label="Mostrar usuarios eliminados"
+              />
             </Box>
           </Box>
 
@@ -472,196 +799,237 @@ const UserList: React.FC = () => {
                     <Checkbox
                       indeterminate={someSelectedOnPage}
                       checked={allSelectedOnPage}
-                      onChange={toggleSelectAllOnPage}
+                      onChange={(e) => {
+                        console.log('HEADER CHECKBOX CHANGE:', e.target.checked);
+                        toggleSelectAllOnPage();
+                      }}
+                      onClick={(e) => {
+                        console.log('HEADER CHECKBOX CLICK');
+                        e.stopPropagation();
+                      }}
+                      inputProps={{
+                        'aria-label': 'Seleccionar todos los usuarios',
+                        onClick: (e: any) => {
+                          console.log('HEADER INPUT CLICK');
+                          toggleSelectAllOnPage();
+                        }
+                      }}
                     />
                   </TableCell>
-                  {visible('usuario') && <TableCell sx={{ fontWeight: 600 }}>Usuario</TableCell>}
-                  {visible('documento') && <TableCell sx={{ fontWeight: 600 }}>Documento</TableCell>}
-                  {visible('email') && <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>}
-                  {visible('telefono') && <TableCell sx={{ fontWeight: 600 }}>Teléfono</TableCell>}
-                  {visible('rol') && <TableCell sx={{ fontWeight: 600 }}>Rol</TableCell>}
-                  {visible('empresa') && <TableCell sx={{ fontWeight: 600 }}>Empresa</TableCell>}
-                  {visible('sede') && <TableCell sx={{ fontWeight: 600 }}>Sede</TableCell>}
-                  {visible('cargo') && <TableCell sx={{ fontWeight: 600 }}>Cargo</TableCell>}
-                  {visible('pais') && <TableCell sx={{ fontWeight: 600 }}>País</TableCell>}
-                  {visible('departamento') && <TableCell sx={{ fontWeight: 600 }}>Departamento/Estado</TableCell>}
-                  {visible('ciudad') && <TableCell sx={{ fontWeight: 600 }}>Ciudad</TableCell>}
-                  {visible('direccion1') && <TableCell sx={{ fontWeight: 600 }}>Dirección 1</TableCell>}
-                  {visible('direccion2') && <TableCell sx={{ fontWeight: 600 }}>Dirección 2</TableCell>}
-                  {visible('comentario') && <TableCell sx={{ fontWeight: 600 }}>Comentario</TableCell>}
-                  {visible('estado') && <TableCell sx={{ fontWeight: 600 }}>Estado</TableCell>}
-                  {visible('ultimoAcceso') && <TableCell sx={{ fontWeight: 600 }}>Último acceso</TableCell>}
-                  {visible('creado') && <TableCell sx={{ fontWeight: 600 }}>Creado</TableCell>}
-                  {visible('actualizado') && <TableCell sx={{ fontWeight: 600 }}>Actualizado</TableCell>}
-                  {visible('acciones') && <TableCell sx={{ fontWeight: 600 }}>Acciones</TableCell>}
+
+                  {getVisibleColumns.map((col) => (
+                    <TableCell key={col.key} sx={{ fontWeight: 600 }}>
+                      {col.label}
+                    </TableCell>
+                  ))}
               </TableRow>
             </TableHead>
             <TableBody>
+
                 {users.map((user) => (
-                  <TableRow key={user.documentNumber} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                  <TableRow key={user.documentNumber}>
                     <TableCell padding="checkbox">
                       <Checkbox
                         checked={selectedIds.has(user.documentNumber)}
-                        onChange={() => toggleSelectOne(user.documentNumber)}
+                        onChange={(e) => {
+                          console.log('CHECKBOX CHANGE EVENT:', user.documentNumber, e.target.checked);
+                          toggleSelectOne(user.documentNumber);
+                        }}
+                        onClick={(e) => {
+                          console.log('CHECKBOX CLICK EVENT:', user.documentNumber);
+                          e.stopPropagation();
+                        }}
+                        inputProps={{
+                          'aria-label': `Seleccionar usuario ${user.firstName} ${user.lastName}`,
+                          onClick: (e: any) => {
+                            console.log('INPUT CLICK EVENT:', user.documentNumber);
+                            toggleSelectOne(user.documentNumber);
+                          }
+                        }}
                       />
                     </TableCell>
-                    {visible('usuario') && (
-                      <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Avatar
-                          sx={{
-                            width: 40,
-                            height: 40,
-                            backgroundColor: '#FF6B6B',
-                            fontSize: '1rem',
-                          }}
-                        >
-                          {user.firstName?.charAt(0) || 'U'}
-                        </Avatar>
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                            {user.firstName} {user.lastName}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            @{user.username || user.email}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      </TableCell>
-                    )}
-                    {visible('documento') && (
-                      <TableCell>
-                      <Typography variant="body2">
-                        {user.documentType}: {user.documentNumber}
-                          </Typography>
-                      </TableCell>
-                    )}
-                    {visible('email') && (
-                      <TableCell>
-                      <Typography variant="body2">{user.email}</Typography>
-                      </TableCell>
-                    )}
-                    {visible('telefono') && (
-                      <TableCell>
-                      <Typography variant="body2">{user.phone || '-'}</Typography>
-                      </TableCell>
-                    )}
-                    {visible('rol') && (
-                      <TableCell>
-                      <Chip
-                        label={user.role}
-                        color={getRoleColor(user.role) as any}
-                        size="small"
-                        sx={{ fontWeight: 500 }}
-                      />
-                      </TableCell>
-                    )}
-                    {visible('empresa') && (
-                      <TableCell>
-                      <Typography variant="body2">
-                        {user.company?.name || '-'}
-                      </Typography>
-                      </TableCell>
-                    )}
-                    {visible('sede') && (
-                      <TableCell>
-                        <Typography variant="body2">{user.headquarters?.name || '-'}</Typography>
-                      </TableCell>
-                    )}
-                    {visible('cargo') && (
-                      <TableCell>
-                        <Typography variant="body2">{user.jobTitle?.name || '-'}</Typography>
-                      </TableCell>
-                    )}
-                    {visible('pais') && (
-                      <TableCell>
-                        <Typography variant="body2">{user.residenceCountry || '-'}</Typography>
-                      </TableCell>
-                    )}
-                    {visible('departamento') && (
-                      <TableCell>
-                        <Typography variant="body2">{user.residenceState || '-'}</Typography>
-                      </TableCell>
-                    )}
-                    {visible('ciudad') && (
-                      <TableCell>
-                        <Typography variant="body2">{user.residenceCity || '-'}</Typography>
-                      </TableCell>
-                    )}
-                    {visible('direccion1') && (
-                      <TableCell>
-                        <Typography variant="body2">{user.addressLine1 || '-'}</Typography>
-                      </TableCell>
-                    )}
-                    {visible('direccion2') && (
-                      <TableCell>
-                        <Typography variant="body2">{user.addressLine2 || '-'}</Typography>
-                      </TableCell>
-                    )}
-                    {visible('comentario') && (
-                      <TableCell>
-                        <Typography variant="body2">{user.commentary || '-'}</Typography>
-                      </TableCell>
-                    )}
-                    {visible('estado') && (
-                      <TableCell>
-                      <Chip
-                        label={user.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
-                        color={getStatusColor(user.status) as any}
-                        size="small"
-                      />
-                      </TableCell>
-                    )}
-                    {visible('ultimoAcceso') && (
-                      <TableCell>
-                        <Typography variant="body2">{user.lastLogin ? new Date(user.lastLogin).toLocaleString() : '-'}</Typography>
-                      </TableCell>
-                    )}
-                    {visible('creado') && (
-                      <TableCell>
-                        <Typography variant="body2">{new Date(user.createdAt).toLocaleDateString()}</Typography>
-                      </TableCell>
-                    )}
-                    {visible('actualizado') && (
-                      <TableCell>
-                        <Typography variant="body2">{new Date(user.updatedAt).toLocaleDateString()}</Typography>
-                      </TableCell>
-                    )}
-                    {visible('acciones') && (
-                      <TableCell>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                          <Tooltip title="Ver detalles">
-                            <IconButton
-                              size="small"
-                            onClick={() => handleOpenModal(user, false)}
-                            sx={{ color: '#2196F3' }}
-                            >
-                              <ViewIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Editar">
-                            <IconButton
-                              size="small"
-                            onClick={() => handleOpenModal(user, true)}
-                            sx={{ color: '#FF9800' }}
-                            >
-                              <EditIcon />
-                            </IconButton>
-                          </Tooltip>
-                        {currentUser?.role === 'SUPER_ADMIN' && user.documentNumber !== currentUser.documentNumber && (
-                          <Tooltip title="Eliminar">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDeleteUser(user.documentNumber)}
-                              sx={{ color: '#F44336' }}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                      </TableCell>
-                    )}
+                    {getVisibleColumns.map((col) => {
+                      switch (col.key) {
+                        case 'usuario':
+                          return (
+                            <TableCell key={col.key}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <Avatar
+                                  sx={{
+                                    width: 40,
+                                    height: 40,
+                                    backgroundColor: '#FF6B6B',
+                                    fontSize: '1rem',
+                                  }}
+                                >
+                                  {user.firstName?.charAt(0) || 'U'}
+                                </Avatar>
+                                <Box>
+                                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                    {user.firstName} {user.lastName}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                    @{user.username || user.email}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </TableCell>
+                          );
+                        case 'documento':
+                          return (
+                            <TableCell key={col.key}>
+                              <Typography variant="body2">
+                                {user.documentType}: {user.documentNumber}
+                              </Typography>
+                            </TableCell>
+                          );
+                        case 'email':
+                          return (
+                            <TableCell key={col.key}>
+                              <Typography variant="body2">{user.email}</Typography>
+                            </TableCell>
+                          );
+                        case 'telefono':
+                          return (
+                            <TableCell key={col.key}>
+                              <Typography variant="body2">{user.phone || '-'}</Typography>
+                            </TableCell>
+                          );
+                        case 'rol':
+                          return (
+                            <TableCell key={col.key}>
+                              <Chip
+                                label={user.role}
+                                color={getRoleColor(user.role) as any}
+                                size="small"
+                                sx={{ fontWeight: 500 }}
+                              />
+                            </TableCell>
+                          );
+                        case 'empresa':
+                          return (
+                            <TableCell key={col.key}>
+                              <Typography variant="body2">
+                                {user.company?.name || '-'}
+                              </Typography>
+                            </TableCell>
+                          );
+                        case 'sede':
+                          return (
+                            <TableCell key={col.key}>
+                              <Typography variant="body2">{user.headquarters?.name || '-'}</Typography>
+                            </TableCell>
+                          );
+                        case 'cargo':
+                          return (
+                            <TableCell key={col.key}>
+                              <Typography variant="body2">{user.jobTitle?.name || '-'}</Typography>
+                            </TableCell>
+                          );
+                        case 'pais':
+                          return (
+                            <TableCell key={col.key}>
+                              <Typography variant="body2">{user.residenceCountry || '-'}</Typography>
+                            </TableCell>
+                          );
+                        case 'departamento':
+                          return (
+                            <TableCell key={col.key}>
+                              <Typography variant="body2">{user.residenceState || '-'}</Typography>
+                            </TableCell>
+                          );
+                        case 'ciudad':
+                          return (
+                            <TableCell key={col.key}>
+                              <Typography variant="body2">{user.residenceCity || '-'}</Typography>
+                            </TableCell>
+                          );
+                        case 'direccion1':
+                          return (
+                            <TableCell key={col.key}>
+                              <Typography variant="body2">{user.addressLine1 || '-'}</Typography>
+                            </TableCell>
+                          );
+                        case 'direccion2':
+                          return (
+                            <TableCell key={col.key}>
+                              <Typography variant="body2">{user.addressLine2 || '-'}</Typography>
+                            </TableCell>
+                          );
+                        case 'comentario':
+                          return (
+                            <TableCell key={col.key}>
+                              <Typography variant="body2">{user.commentary || '-'}</Typography>
+                            </TableCell>
+                          );
+                        case 'estado':
+                          return (
+                            <TableCell key={col.key}>
+                              <Chip
+                                label={user.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
+                                color={getStatusColor(user.status) as any}
+                                size="small"
+                              />
+                            </TableCell>
+                          );
+                        case 'ultimoAcceso':
+                          return (
+                            <TableCell key={col.key}>
+                              <Typography variant="body2">{user.lastLogin ? new Date(user.lastLogin).toLocaleString() : '-'}</Typography>
+                            </TableCell>
+                          );
+                        case 'creado':
+                          return (
+                            <TableCell key={col.key}>
+                              <Typography variant="body2">{new Date(user.createdAt).toLocaleDateString()}</Typography>
+                            </TableCell>
+                          );
+                        case 'actualizado':
+                          return (
+                            <TableCell key={col.key}>
+                              <Typography variant="body2">{new Date(user.updatedAt).toLocaleDateString()}</Typography>
+                            </TableCell>
+                          );
+                        case 'acciones':
+                          return (
+                            <TableCell key={col.key}>
+                              <Box sx={{ display: 'flex', gap: 1 }}>
+                                <Tooltip title="Ver detalles">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleOpenModal(user, false)}
+                                    sx={{ color: '#2196F3' }}
+                                  >
+                                    <ViewIcon />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Editar">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleOpenModal(user, true)}
+                                    sx={{ color: '#FF9800' }}
+                                  >
+                                    <EditIcon />
+                                  </IconButton>
+                                </Tooltip>
+                                {(currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN') && user.role !== 'SUPER_ADMIN' && user.documentNumber !== currentUser.documentNumber && (
+                                  <Tooltip title="Eliminar">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleDeleteUser(user.documentNumber)}
+                                      sx={{ color: '#F44336' }}
+                                    >
+                                      <DeleteIcon />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                              </Box>
+                            </TableCell>
+                          );
+                        default:
+                          return null;
+                      }
+                    })}
                   </TableRow>
                 ))}
             </TableBody>
@@ -688,41 +1056,130 @@ const UserList: React.FC = () => {
       </Card>
 
       {/* Diálogo de selección de columnas */}
+
       <MuiDialog
         open={columnsDialogOpen}
-        onClose={() => setColumnsDialogOpen(false)}
+        onClose={(event, reason) => {
+          if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
+            closeColumnsDialog();
+          }
+        }}
         maxWidth="sm"
         fullWidth
         disableAutoFocus
         disableEnforceFocus
-        disableEscapeKeyDown
         disableRestoreFocus
         keepMounted
         PaperProps={{ sx: { borderRadius: 3 } }}
+        aria-labelledby="columns-dialog-title"
+        aria-describedby="columns-dialog-description"
       >
-        <MuiDialogTitle>Columnas visibles</MuiDialogTitle>
+        <MuiDialogTitle id="columns-dialog-title">
+          Configurar Columnas Visibles
+        </MuiDialogTitle>
         <MuiDialogContent dividers>
-          <FormGroup>
-            {COLUMN_OPTIONS.map(col => (
-              <FormControlLabel
-                key={col.key}
-                control={<Checkbox checked={columnsVisibility[col.key]} onChange={() => handleToggleColumn(col.key)} />}
-                label={col.label}
-              />)
-            )}
-          </FormGroup>
+          <Box id="columns-dialog-description" sx={{ mb: 2, color: 'text.secondary', fontSize: '0.875rem' }}>
+            Arrastra las columnas para reordenarlas y activa/desactiva las que deseas mostrar en la tabla de usuarios.
+          </Box>
+          <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
+            {columnsConfig.map((col, index) => (
+              <React.Fragment key={col.key}>
+                <ListItem
+                  sx={{
+                    border: '1px solid #e0e0e0',
+                    borderRadius: 1,
+                    mb: 1,
+                    '&:hover': {
+                      backgroundColor: '#f5f5f5',
+                    },
+                  }}
+                  secondaryAction={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Button
+                        size="small"
+                        variant={col.defaultVisible ? "contained" : "outlined"}
+                        onClick={() => handleToggleColumn(col.key)}
+                        sx={{ 
+                          minWidth: 'auto',
+                          px: 1,
+                          backgroundColor: col.defaultVisible ? '#FF6B6B' : '#f5f5f5',
+                          color: col.defaultVisible ? 'white' : '#666',
+                          borderColor: col.defaultVisible ? '#FF6B6B' : '#ddd',
+                          '&:hover': {
+                            backgroundColor: col.defaultVisible ? '#FF5A5A' : '#e0e0e0',
+                            borderColor: col.defaultVisible ? '#FF5A5A' : '#ccc',
+                          }
+                        }}
+                      >
+                        {col.defaultVisible ? 'ON' : 'OFF'}
+                      </Button>
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          if (index > 0) {
+                            handleMoveColumn(index, index - 1);
+                          }
+                        }}
+                        disabled={index === 0}
+                        sx={{ color: '#666' }}
+                      >
+                        ↑
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          if (index < columnsConfig.length - 1) {
+                            handleMoveColumn(index, index + 1);
+                          }
+                        }}
+                        disabled={index === columnsConfig.length - 1}
+                        sx={{ color: '#666' }}
+                      >
+                        ↓
+                      </IconButton>
+                    </Box>
+                  }
+                >
+                  <ListItemIcon>
+                    <DragIcon sx={{ color: '#999' }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={col.label}
+                    secondary={`Orden: ${col.order}`}
+                    sx={{
+                      '& .MuiListItemText-primary': {
+                        fontWeight: col.defaultVisible ? 600 : 400,
+                        color: col.defaultVisible ? '#333' : '#666',
+                      },
+                    }}
+                  />
+                </ListItem>
+                {index < columnsConfig.length - 1 && <Divider />}
+              </React.Fragment>
+            ))}
+          </List>
         </MuiDialogContent>
-        <MuiDialogActions>
-          <Button onClick={() => {
-            // Restaurar predeterminadas
-            const defaults = COLUMN_OPTIONS.reduce((acc, c) => {
-              acc[c.key] = c.defaultVisible; return acc;
-            }, {} as Record<ColumnKey, boolean>);
-            setColumnsVisibility(defaults);
-            try { localStorage.setItem(VISIBLE_COLUMNS_STORAGE_KEY, JSON.stringify(defaults)); } catch {}
-            setColumnsDialogOpen(false);
-          }}>Restablecer</Button>
-          <Button variant="contained" onClick={() => setColumnsDialogOpen(false)}>Cerrar</Button>
+        <MuiDialogActions sx={{ p: 2, gap: 1 }}>
+          <Button 
+                        onClick={resetColumns}
+            variant="outlined"
+            size="small"
+          >
+            Restablecer
+          </Button>
+          <Button
+            variant="contained"
+            onClick={closeColumnsDialog}
+            size="small"
+            sx={{
+              bgcolor: '#FF69B4',
+              '&:hover': {
+                bgcolor: '#FF1493',
+              },
+            }}
+          >
+            Cerrar
+          </Button>
         </MuiDialogActions>
       </MuiDialog>
 
@@ -759,12 +1216,154 @@ const UserList: React.FC = () => {
         </DialogTitle>
         <DialogContent sx={{ p: 0 }}>
           <UserForm
-            initialData={selectedUser}
+            initialData={selectedUser || undefined}
             onCancel={handleCloseModal}
             onSave={handleUserSaved}
             isEditMode={isEditMode}
           />
         </DialogContent>
+      </Dialog>
+
+      {/* Menú de exportación */}
+      <Menu
+        anchorEl={exportMenuAnchor}
+        open={Boolean(exportMenuAnchor)}
+        onClose={() => setExportMenuAnchor(null)}
+      >
+        <MenuItem onClick={() => { exportToCSV(); setExportMenuAnchor(null); }}>
+          Exportar a CSV
+        </MenuItem>
+        <MenuItem onClick={() => { exportToPDF(); setExportMenuAnchor(null); }}>
+          Exportar a PDF
+        </MenuItem>
+        <MenuItem onClick={() => { exportToHTML(); setExportMenuAnchor(null); }}>
+          Exportar a HTML
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => { 
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = '.csv,.xlsx,.xls';
+          input.onchange = (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (file) {
+              console.log('Archivo seleccionado para importar:', file.name);
+              // Aquí se procesaría el archivo
+              setMessage({ type: 'success', text: `Archivo ${file.name} seleccionado para importar` });
+            }
+          };
+          input.click();
+          setExportMenuAnchor(null);
+        }}>
+          Importar desde archivo
+        </MenuItem>
+      </Menu>
+
+      {/* Diálogo de modificación masiva */}
+      <Dialog
+        open={bulkEditDialogOpen}
+        onClose={() => setBulkEditDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ bgcolor: '#FF6B6B', color: 'white' }}>
+          Modificar Usuarios Seleccionados
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Empresa"
+                value={bulkEditData.company}
+                onChange={(e) => setBulkEditData(prev => ({ ...prev, company: e.target.value }))}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Sede"
+                value={bulkEditData.headquarters}
+                onChange={(e) => setBulkEditData(prev => ({ ...prev, headquarters: e.target.value }))}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Cargo"
+                value={bulkEditData.jobTitle}
+                onChange={(e) => setBulkEditData(prev => ({ ...prev, jobTitle: e.target.value }))}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Rol</InputLabel>
+                <MuiSelect
+                  value={bulkEditData.role}
+                  onChange={(e) => setBulkEditData(prev => ({ ...prev, role: e.target.value }))}
+                  label="Rol"
+                >
+                  <MuiMenuItem value="">No cambiar</MuiMenuItem>
+                  <MuiMenuItem value="SUPER_ADMIN">Super Admin</MuiMenuItem>
+                  <MuiMenuItem value="ADMIN">Admin</MuiMenuItem>
+                  <MuiMenuItem value="SUPERVISOR">Supervisor</MuiMenuItem>
+                  <MuiMenuItem value="USER">User</MuiMenuItem>
+                </MuiSelect>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="País"
+                value={bulkEditData.residenceCountry}
+                onChange={(e) => setBulkEditData(prev => ({ ...prev, residenceCountry: e.target.value }))}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Departamento/Estado"
+                value={bulkEditData.residenceState}
+                onChange={(e) => setBulkEditData(prev => ({ ...prev, residenceState: e.target.value }))}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Ciudad"
+                value={bulkEditData.residenceCity}
+                onChange={(e) => setBulkEditData(prev => ({ ...prev, residenceCity: e.target.value }))}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Comentario"
+                value={bulkEditData.commentary}
+                onChange={(e) => setBulkEditData(prev => ({ ...prev, commentary: e.target.value }))}
+                multiline
+                rows={3}
+                size="small"
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkEditDialogOpen(false)}>Cancelar</Button>
+          <Button 
+            onClick={handleBulkEdit}
+            variant="contained"
+            sx={{ bgcolor: '#FF6B6B', '&:hover': { bgcolor: '#FF5A5A' } }}
+          >
+            Aplicar Cambios
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* FAB para crear usuario */}

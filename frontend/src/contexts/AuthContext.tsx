@@ -123,9 +123,9 @@ interface AuthProviderProps {
 }
 
 // Configuración de timeouts
-const SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutos en millisegundos
-const WARNING_TIME = 2 * 60 * 1000; // Mostrar warning 2 minutos antes
-const CHECK_INTERVAL = 30 * 1000; // Verificar cada 30 segundos
+const SESSION_TIMEOUT = 8 * 60 * 60 * 1000; // 8 horas en millisegundos
+const WARNING_TIME = 10 * 60 * 1000; // Mostrar warning 10 minutos antes
+const CHECK_INTERVAL = 5 * 60 * 1000; // Verificar cada 5 minutos
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
@@ -393,11 +393,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
 
-      // Verificar si la sesión ha expirado
+      // Verificar si la sesión ha expirado (solo si es muy antigua)
       const now = Date.now();
       const sessionAge = now - parseInt(loginTime);
       
-      if (sessionAge >= SESSION_TIMEOUT) {
+      if (sessionAge >= SESSION_TIMEOUT * 2) { // Solo cerrar si es el doble del timeout
         logout(true);
         return;
       }
@@ -448,30 +448,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, [state.isAuthenticated]);
 
-  // Manejar cierre de ventana/pestaña
+  // Manejar visibilidad de la ventana (sin cerrar sesión automáticamente)
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (state.isAuthenticated) {
-        // Marcar sesión para limpieza al cerrar
-        sessionStorage.setItem('sessionClosed', 'true');
+    const handleVisibilityChange = () => {
+      if (!document.hidden && state.isAuthenticated) {
+        // Solo actualizar actividad cuando la ventana vuelve a ser visible
+        updateLastActivity();
       }
     };
 
-    const handleFocus = () => {
-      // Verificar si se cerró en otra pestaña
-      const wasClosed = sessionStorage.getItem('sessionClosed');
-      if (wasClosed === 'true' && state.isAuthenticated) {
-        sessionStorage.removeItem('sessionClosed');
-        logout(true);
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [state.isAuthenticated]);
 

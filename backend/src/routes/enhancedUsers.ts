@@ -79,13 +79,13 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
       }
     };
 
-    // Add search filter
+    // Add search filter (MySQL compatible)
     if (search) {
       where.OR = [
-        { firstName: { contains: search as string, mode: 'insensitive' } },
-        { lastName: { contains: search as string, mode: 'insensitive' } },
-        { email: { contains: search as string, mode: 'insensitive' } },
-        { username: { contains: search as string, mode: 'insensitive' } },
+        { firstName: { contains: search as string } },
+        { lastName: { contains: search as string } },
+        { email: { contains: search as string } },
+        { username: { contains: search as string } },
         { documentNumber: { contains: search as string } }
       ];
     }
