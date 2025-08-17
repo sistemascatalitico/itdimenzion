@@ -84,7 +84,7 @@ A modern, full-stack enterprise management system built with cutting-edge techno
 
 1. **Clone Repository**
    ```bash
-   git clone https://github.com/iltonysverbel/itdimenzion.git
+   git clone https://github.com/iltonys/itdimenzion.git
    cd itdimenzion
    ```
 
