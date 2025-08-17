@@ -1,29 +1,48 @@
-# ITDimenzion Enterprise Management System
+# 🏢 ITDimenzion Enterprise Management System
 
-## Overview
+A modern, full-stack enterprise management system built with cutting-edge technologies for scalable business operations.
 
-ITDimenzion is a comprehensive enterprise management system built with security-first architecture. The system provides user management, company organization, and role-based access control for enterprise environments.
+## 👨‍💻 Developer
 
-## Developer
+**Iltonys Verbel**  
+**VERBELTECH Solutions**  
+📧 iltonysverbel@gmail.com
 
-**ILTONYS VERBEL RAMOS**  
-VerbelTech Solutions  
-Email: iltonysverbel@gmail.com
+- **Frontend**: React 19.1 + TypeScript + Material-UI v7
+- **Backend**: Node.js + Express + TypeScript
+- **Database**: MySQL 8.0 + Prisma ORM
+- **Authentication**: JWT with role-based access control
+- **Deployment**: Docker & Docker Compose ready
 
-## Architecture
+## ✨ Key Features
 
-### Backend
-- Node.js + Express 4 + TypeScript
-- MySQL database with Prisma ORM
-- JWT authentication with refresh tokens
-- Role-based access control (RBAC)
-- Comprehensive security middleware
+### 🔐 Authentication & Security
+- Multi-level user authentication (SUPER_ADMIN, ADMIN, SUPERVISOR, USER)
+- JWT-based session management with secure tokens
+- Password hashing with bcrypt (12 rounds)
+- CORS protection and comprehensive security headers
+- Role-based access control system
 
-### Frontend
-- React + TypeScript + Vite
-- Material-UI v5 components library
-- Responsive design implementation
-- Secure authentication context
+### 👥 User Management
+- Hierarchical company structure
+- Multi-step user registration with validation
+- Document type support (CEDULA, PASSPORT, NIT, etc.)
+- Advanced phone number handling with country codes
+- Location-based user organization
+
+### 🏢 Enterprise Features
+- Company → Headquarters → Users hierarchy
+- Multi-location support and management
+- Department and job title organization
+- Process-based workflow tracking
+- Complete audit logging system
+
+### 🎨 Modern UI/UX
+- Responsive Material Design components
+- Progressive multi-step forms
+- Loading screens with success feedback
+- Consistent pink/coral corporate theme (#FF69B4)
+- Mobile-first responsive design
 
 ## Security Features
 
@@ -65,8 +84,8 @@ Email: iltonysverbel@gmail.com
 
 1. **Clone Repository**
    ```bash
-   git clone https://github.com/iltonys/itdimenzion-v3.git
-   cd itdimenzion-v3
+   git clone https://github.com/iltonysverbel/itdimenzion.git
+   cd itdimenzion
    ```
 
 2. **Install Dependencies**
@@ -96,17 +115,17 @@ Email: iltonysverbel@gmail.com
    ```bash
    # Terminal 1 - Backend
    cd backend
-   pnpm dev
+   pnpm run dev
    
    # Terminal 2 - Frontend
    cd frontend
-   pnpm dev
+   pnpm start
    ```
 
 6. **Access Application**
    - Frontend: http://localhost:3000
-   - Backend API: http://localhost:4001/api
-   - Health Check: http://localhost:4001/health
+   - Backend API: http://localhost:4000/api
+   - Health Check: http://localhost:4000/health
 
 ## Default Credentials
 
@@ -134,7 +153,7 @@ Email: iltonysverbel@gmail.com
 ## Environment Configuration
 
 ### Development
-- Backend Port: 4001
+- Backend Port: 4000
 - Frontend Port: 3000
 - Database: MySQL localhost
 
