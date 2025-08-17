@@ -86,10 +86,26 @@ prisma/migrations/*/migration.sql
 # Project backups - Contains complete project snapshots
 Backups/
 
-# Claude Code specific
+# AI Assistant files - Development documentation only
 .claude/
 CLAUDE.md
 CLAUDE.log
+claude-logger.js
 MCP_Actualizacion.md
+DEV-SETUP.md
 GEMINI.md
 GEMINI.log
+gemini-logger.js
+
+# AI Assistant patterns
+*claude*
+*Claude*
+*CLAUDE*
+*claude-logger*
+*Claude-logger*
+*CLAUDE-LOGGER*
+*MCP_Actualizacion*
+*DEV-SETUP*
+
+# Development documentation files
+nul
