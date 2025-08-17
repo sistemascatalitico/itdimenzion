@@ -1,12 +1,12 @@
-# 🏢 ITDimenzion Enterprise Management System
+# ITDimenzion Enterprise Management System
 
 A modern, full-stack enterprise management system built with cutting-edge technologies for scalable business operations.
 
-## 👨‍💻 Developer
+## Developer
 
 **Iltonys Verbel**  
 **VERBELTECH Solutions**  
-📧 iltonysverbel@gmail.com
+iltonysverbel@gmail.com
 
 - **Frontend**: React 19.1 + TypeScript + Material-UI v7
 - **Backend**: Node.js + Express + TypeScript
@@ -14,30 +14,30 @@ A modern, full-stack enterprise management system built with cutting-edge techno
 - **Authentication**: JWT with role-based access control
 - **Deployment**: Docker & Docker Compose ready
 
-## ✨ Key Features
+## Key Features
 
-### 🔐 Authentication & Security
+### Authentication & Security
 - Multi-level user authentication (SUPER_ADMIN, ADMIN, SUPERVISOR, USER)
 - JWT-based session management with secure tokens
 - Password hashing with bcrypt (12 rounds)
 - CORS protection and comprehensive security headers
 - Role-based access control system
 
-### 👥 User Management
+### User Management
 - Hierarchical company structure
 - Multi-step user registration with validation
 - Document type support (CEDULA, PASSPORT, NIT, etc.)
 - Advanced phone number handling with country codes
 - Location-based user organization
 
-### 🏢 Enterprise Features
+### Enterprise Features
 - Company → Headquarters → Users hierarchy
 - Multi-location support and management
 - Department and job title organization
 - Process-based workflow tracking
 - Complete audit logging system
 
-### 🎨 Modern UI/UX
+### Modern UI/UX
 - Responsive Material Design components
 - Progressive multi-step forms
 - Loading screens with success feedback
