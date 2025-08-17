@@ -83,5 +83,23 @@ prisma/migrations/*/migration.sql
 *.backup
 *.bak
 
-# Development documentation files
+# Project backups - Contains complete project snapshots
+Backups/
+
+# Development documentation and logs
+*.md.bak
+*.log
+*-logger.js
+*_Actualizacion.md
+DEV-SETUP.md
+
+# Temporary development files
+.development/
+temp-docs/
+dev-notes/
+working-files/
+
+# System generated files
 nul
+.DS_Store
+desktop.ini
