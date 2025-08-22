@@ -63,10 +63,13 @@ import {
   FilterList as FilterIcon,
   MoreVert as MoreVertIcon,
   ExpandMore as ExpandMoreIcon,
+  Dashboard as DashboardIcon,
+  List as ListIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../config/api';
 import UserForm from './UserForm';
+import UserDashboard from './UserDashboard';
 
 interface User {
   documentNumber: string;
@@ -78,6 +81,7 @@ interface User {
   username: string | null;
   role: string;
   status: 'ACTIVE' | 'INACTIVE';
+  isDeletionProtected?: boolean;
   createdAt: string;
   updatedAt: string;
   lastLogin?: string;
@@ -189,6 +193,7 @@ const UserList: React.FC = () => {
     commentary: '',
     role: ''
   });
+  const [activeTab, setActiveTab] = useState<'list' | 'dashboard'>('list');
 
   const loadUsers = useCallback(async (params?: { search?: string }) => {
     try {
@@ -244,25 +249,34 @@ const UserList: React.FC = () => {
   }, [handleCloseModal, loadUsers, isEditMode]);
 
   const handleDeleteUser = useCallback(async (userId: string) => {
-    // Prevent deleting SUPER_ADMIN users
     const target = users.find(u => u.documentNumber === userId);
+    
+    // Check if user is deletion protected
+    if (target?.isDeletionProtected) {
+      setMessage({ type: 'error', text: 'Este usuario está protegido contra eliminación' });
+      return;
+    }
+    
+    // Prevent deleting SUPER_ADMIN users
     if (target?.role === 'SUPER_ADMIN') {
       setMessage({ type: 'error', text: 'No se permite eliminar usuarios SUPER_ADMIN' });
       return;
     }
-    if (!window.confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
+    
+    if (!window.confirm('¿Estás seguro de que deseas desactivar este usuario?')) {
       return;
     }
 
     try {
+      // Use soft delete endpoint (DELETE still works but now does soft delete)
       await api.delete(`/users/${userId}`);
       loadUsers();
-      setMessage({ type: 'success', text: 'Usuario eliminado exitosamente' });
+      setMessage({ type: 'success', text: 'Usuario desactivado exitosamente' });
     } catch (error: any) {
       console.error('Error deleting user:', error);
       setMessage({ 
         type: 'error', 
-        text: error.response?.data?.message || 'Error al eliminar usuario' 
+        text: error.response?.data?.message || 'Error al desactivar usuario' 
       });
     }
   }, [loadUsers, users]);
@@ -637,12 +651,46 @@ const UserList: React.FC = () => {
             </Alert>
           )}
 
-          <Box sx={{ mb: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6" sx={{ color: '#333', fontWeight: 600 }}>
-                Lista de Usuarios ({users.length})
-              </Typography>
+          {/* Pestañas */}
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant={activeTab === 'list' ? 'contained' : 'outlined'}
+                startIcon={<ListIcon />}
+                onClick={() => setActiveTab('list')}
+                sx={{
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                }}
+              >
+                Lista de Usuarios
+              </Button>
+              <Button
+                variant={activeTab === 'dashboard' ? 'contained' : 'outlined'}
+                startIcon={<DashboardIcon />}
+                onClick={() => setActiveTab('dashboard')}
+                sx={{
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                }}
+              >
+                Dashboard
+              </Button>
             </Box>
+          </Box>
+
+          {/* Contenido de las pestañas */}
+          {activeTab === 'dashboard' ? (
+            <UserDashboard />
+          ) : (
+            <Box sx={{ mb: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" sx={{ color: '#333', fontWeight: 600 }}>
+                  Lista de Usuarios ({users.length})
+                </Typography>
+              </Box>
 
             {/* Barra de acciones y búsqueda */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -791,69 +839,69 @@ const UserList: React.FC = () => {
             </Box>
           </Box>
 
-          <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto', overflowY: 'hidden' }}>
-          <Table>
-            <TableHead>
-                <TableRow sx={{ backgroundColor: '#f8f9fa' }}>
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      indeterminate={someSelectedOnPage}
-                      checked={allSelectedOnPage}
-                      onChange={(e) => {
-                        console.log('HEADER CHECKBOX CHANGE:', e.target.checked);
-                        toggleSelectAllOnPage();
-                      }}
-                      onClick={(e) => {
-                        console.log('HEADER CHECKBOX CLICK');
-                        e.stopPropagation();
-                      }}
-                      inputProps={{
-                        'aria-label': 'Seleccionar todos los usuarios',
-                        onClick: (e: any) => {
-                          console.log('HEADER INPUT CLICK');
-                          toggleSelectAllOnPage();
-                        }
-                      }}
-                    />
-                  </TableCell>
+              <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto', overflowY: 'hidden' }}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: '#f8f9fa' }}>
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          indeterminate={someSelectedOnPage}
+                          checked={allSelectedOnPage}
+                          onChange={(e) => {
+                            console.log('HEADER CHECKBOX CHANGE:', e.target.checked);
+                            toggleSelectAllOnPage();
+                          }}
+                          onClick={(e) => {
+                            console.log('HEADER CHECKBOX CLICK');
+                            e.stopPropagation();
+                          }}
+                          inputProps={{
+                            'aria-label': 'Seleccionar todos los usuarios',
+                            onClick: (e: any) => {
+                              console.log('HEADER INPUT CLICK');
+                              toggleSelectAllOnPage();
+                            }
+                          }}
+                        />
+                      </TableCell>
 
-                  {getVisibleColumns.map((col) => (
-                    <TableCell key={col.key} sx={{ fontWeight: 600 }}>
-                      {col.label}
-                    </TableCell>
-                  ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
+                      {getVisibleColumns.map((col) => (
+                        <TableCell key={col.key} sx={{ fontWeight: 600 }}>
+                          {col.label}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
 
-                {users.map((user) => (
-                  <TableRow key={user.documentNumber}>
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        checked={selectedIds.has(user.documentNumber)}
-                        onChange={(e) => {
-                          console.log('CHECKBOX CHANGE EVENT:', user.documentNumber, e.target.checked);
-                          toggleSelectOne(user.documentNumber);
-                        }}
-                        onClick={(e) => {
-                          console.log('CHECKBOX CLICK EVENT:', user.documentNumber);
-                          e.stopPropagation();
-                        }}
-                        inputProps={{
-                          'aria-label': `Seleccionar usuario ${user.firstName} ${user.lastName}`,
-                          onClick: (e: any) => {
-                            console.log('INPUT CLICK EVENT:', user.documentNumber);
-                            toggleSelectOne(user.documentNumber);
-                          }
-                        }}
-                      />
-                    </TableCell>
-                    {getVisibleColumns.map((col) => {
-                      switch (col.key) {
-                        case 'usuario':
-                          return (
-                            <TableCell key={col.key}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    {users.map((user) => (
+                      <TableRow key={user.documentNumber}>
+                        <TableCell padding="checkbox">
+                          <Checkbox
+                            checked={selectedIds.has(user.documentNumber)}
+                            onChange={(e) => {
+                              console.log('CHECKBOX CHANGE EVENT:', user.documentNumber, e.target.checked);
+                              toggleSelectOne(user.documentNumber);
+                            }}
+                            onClick={(e) => {
+                              console.log('CHECKBOX CLICK EVENT:', user.documentNumber);
+                              e.stopPropagation();
+                            }}
+                            inputProps={{
+                              'aria-label': `Seleccionar usuario ${user.firstName} ${user.lastName}`,
+                              onClick: (e: any) => {
+                                console.log('INPUT CLICK EVENT:', user.documentNumber);
+                                toggleSelectOne(user.documentNumber);
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        {getVisibleColumns.map((col) => {
+                          switch (col.key) {
+                            case 'usuario':
+                              return (
+                                <TableCell key={col.key}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                 <Avatar
                                   sx={{
                                     width: 40,
@@ -1028,28 +1076,30 @@ const UserList: React.FC = () => {
                           );
                         default:
                           return null;
-                      }
-                    })}
-                  </TableRow>
-                ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                          }
+                        })}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
 
-          {users.length === 0 && !loading && (
-            <Box
-              sx={{
-                textAlign: 'center',
-                py: 8,
-                color: 'text.secondary',
-              }}
-            >
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                No hay usuarios registrados
-              </Typography>
-              <Typography variant="body2">
-                Comienza creando el primer usuario del sistema
-              </Typography>
+              {users.length === 0 && !loading && (
+                <Box
+                  sx={{
+                    textAlign: 'center',
+                    py: 8,
+                    color: 'text.secondary',
+                  }}
+                >
+                  <Typography variant="h6" sx={{ mb: 2 }}>
+                    No hay usuarios registrados
+                  </Typography>
+                  <Typography variant="body2">
+                    Comienza creando el primer usuario del sistema
+                  </Typography>
+                </Box>
+              )}
             </Box>
           )}
         </CardContent>

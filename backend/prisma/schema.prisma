@@ -143,6 +143,7 @@ model User {
   twoFactorEnabled       Boolean      @default(false)
   twoFactorSecret        String?
   profilePicture         String?
+  isDeletionProtected    Boolean      @default(false) // Prevents user from being deleted/disabled
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
   createdBy             String?      // Document number of creator

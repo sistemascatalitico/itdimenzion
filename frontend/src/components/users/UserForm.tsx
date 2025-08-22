@@ -13,6 +13,8 @@ import {
   CircularProgress,
   Alert,
   DialogActions,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import { Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material';
 import api from '../../config/api';
@@ -31,6 +33,7 @@ interface User {
   phone: string;
   role: string;
   isActive: boolean;
+  isDeletionProtected?: boolean;
   contactEmail?: string;
   addressLine1?: string;
   addressLine2?: string;
@@ -90,6 +93,7 @@ const UserForm: React.FC<UserFormProps> = ({
     phone: '',
     role: '',
     isActive: true,
+    isDeletionProtected: false,
     contactEmail: '',
     addressLine1: '',
     addressLine2: '',
@@ -156,6 +160,7 @@ const UserForm: React.FC<UserFormProps> = ({
         phone: initialData.phone || '',
         role: initialData.role || '',
         isActive: initialData.isActive,
+        isDeletionProtected: initialData.isDeletionProtected || false,
         contactEmail: initialData.contactEmail || initialData.email || '',
         addressLine1: initialData.addressLine1 || '',
         addressLine2: initialData.addressLine2 || '',
@@ -245,6 +250,7 @@ const UserForm: React.FC<UserFormProps> = ({
         username: formData.username || null,
         role: formData.role,
         status: formData.isActive ? 'ACTIVE' : 'INACTIVE',
+        isDeletionProtected: formData.isDeletionProtected,
         addressLine1: formData.addressLine1 || null,
         addressLine2: formData.addressLine2 || null,
         residenceCountry: locationData.country || null,
@@ -412,6 +418,33 @@ const UserForm: React.FC<UserFormProps> = ({
                     </Select>
                   </FormControl>
                 </Grid>
+
+          {/* Deletion Protection - Only visible for ADMIN and SUPER_ADMIN */}
+          {(formData.role === 'ADMIN' || formData.role === 'SUPER_ADMIN') && (
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.isDeletionProtected}
+                    onChange={(e) => handleInputChange('isDeletionProtected', e.target.checked)}
+                    sx={{
+                      color: '#FF69B4',
+                      '&.Mui-checked': {
+                        color: '#FF69B4',
+                      },
+                    }}
+                  />
+                }
+                label="Proteger contra eliminación"
+                sx={{
+                  '& .MuiFormControlLabel-label': {
+                    color: '#333',
+                    fontWeight: 500,
+                  },
+                }}
+              />
+            </Grid>
+          )}
 
           <Grid item xs={12}>
             <Divider sx={{ my: 2 }} />

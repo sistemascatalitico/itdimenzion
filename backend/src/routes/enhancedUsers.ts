@@ -24,6 +24,7 @@ interface UserResponse {
   residenceCountry?: string | null;
   residenceState?: string | null;
   residenceCity?: string | null;
+  isDeletionProtected?: boolean;
   company?: {
     id: number;
     name: string;
@@ -125,6 +126,7 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
           residenceCountry: true,
           residenceState: true,
           residenceCity: true,
+          isDeletionProtected: true,
           lastLogin: true,
           createdAt: true,
           updatedAt: true,
@@ -216,6 +218,7 @@ router.get('/:documentNumber', authenticateToken, async (req: AuthenticatedReque
         residenceCountry: true,
         residenceState: true,
         residenceCity: true,
+        isDeletionProtected: true,
         lastLogin: true,
         createdAt: true,
         updatedAt: true,
@@ -308,7 +311,8 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
       companyId,
       headquartersId,
       processId,
-      jobTitleId
+      jobTitleId,
+      isDeletionProtected
     } = req.body;
 
     // Check if current user can assign the requested role
@@ -361,6 +365,7 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
         headquartersId: headquartersId || null,
         processId: processId || null,
         jobTitleId: jobTitleId || null,
+        isDeletionProtected: isDeletionProtected || false,
         createdBy: currentUser.documentNumber,
         updatedBy: currentUser.documentNumber
       },
@@ -380,6 +385,7 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
         residenceCountry: true,
         residenceState: true,
         residenceCity: true,
+        isDeletionProtected: true,
         createdAt: true,
         updatedAt: true
       }
@@ -446,7 +452,8 @@ router.put('/:documentNumber', authenticateToken, async (req: AuthenticatedReque
       companyId,
       headquartersId,
       processId,
-      jobTitleId
+      jobTitleId,
+      isDeletionProtected
     } = req.body;
 
     // Check if current user can assign the requested role
@@ -471,7 +478,8 @@ router.put('/:documentNumber', authenticateToken, async (req: AuthenticatedReque
       ...(companyId !== undefined && { companyId }),
       ...(headquartersId !== undefined && { headquartersId }),
       ...(processId !== undefined && { processId }),
-      ...(jobTitleId !== undefined && { jobTitleId })
+      ...(jobTitleId !== undefined && { jobTitleId }),
+      ...(isDeletionProtected !== undefined && { isDeletionProtected })
     };
 
     const validation = await UserValidation.validateUserUpdate(documentNumber, updateData);
@@ -554,7 +562,8 @@ router.patch('/:documentNumber/status', authenticateToken, async (req: Authentic
         firstName: true,
         lastName: true,
         role: true,
-        status: true
+        status: true,
+        isDeletionProtected: true
       }
     });
 
@@ -616,12 +625,18 @@ router.delete('/:documentNumber', authenticateToken, async (req: AuthenticatedRe
         firstName: true,
         lastName: true,
         role: true,
-        status: true
+        status: true,
+        isDeletionProtected: true
       }
     });
 
     if (!existingUser) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Check if user is deletion protected
+    if (existingUser.isDeletionProtected) {
+      return res.status(403).json({ error: 'Este usuario está protegido contra eliminación' });
     }
 
     // Check special rule: only SUPER_ADMIN can delete SUPER_ADMIN
@@ -639,13 +654,17 @@ router.delete('/:documentNumber', authenticateToken, async (req: AuthenticatedRe
       return res.status(400).json({ error: 'No puedes eliminar tu propio usuario' });
     }
 
-    // Delete user (this will cascade delete related records due to foreign key constraints)
-    await prisma.user.delete({
-      where: { documentNumber }
+    // Perform soft delete by setting status to INACTIVE instead of hard delete
+    await prisma.user.update({
+      where: { documentNumber },
+      data: {
+        status: Status.INACTIVE,
+        updatedBy: currentUser.documentNumber
+      }
     });
 
     res.json({ 
-      message: `Usuario ${existingUser.firstName} ${existingUser.lastName} eliminado exitosamente`
+      message: `Usuario ${existingUser.firstName} ${existingUser.lastName} desactivado exitosamente`
     });
   } catch (error) {
     console.error('Error deleting user:', error);
