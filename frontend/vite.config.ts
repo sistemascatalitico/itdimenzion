@@ -1,9 +1,20 @@
 import path from 'path'
+import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const zustandInFrontend = path.resolve(__dirname, 'node_modules/zustand')
+const zustandInRoot = path.resolve(__dirname, '../node_modules/.pnpm')
+// En pnpm, zustand está en .pnpm. Buscar el primer match (el path exacto puede variar)
+const pnpmZustandMatch = fs.existsSync(zustandInRoot) && fs.readdirSync(zustandInRoot)
+  .find(d => d.startsWith('zustand@'))
+const zustandPath = fs.existsSync(zustandInFrontend)
+  ? zustandInFrontend
+  : pnpmZustandMatch
+    ? path.resolve(zustandInRoot, pnpmZustandMatch, 'node_modules/zustand')
+    : zustandInFrontend // fallback
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -13,8 +24,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      // Forzar resolución de zustand en pnpm monorepo (frontend tiene node_modules con symlinks)
-      zustand: path.resolve(__dirname, 'node_modules/zustand'),
+      // Forzar resolución de zustand (pnpm monorepo: frontend o raíz/.pnpm)
+      zustand: zustandPath,
     },
     dedupe: ['zustand', 'react', 'react-dom'],
   },
