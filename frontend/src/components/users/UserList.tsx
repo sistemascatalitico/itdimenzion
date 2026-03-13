@@ -1217,7 +1217,7 @@ const UserList: React.FC = React.memo(() => {
             )}
           </Box>
 
-          <TableContainer component={Paper as React.ComponentType} sx={{ borderRadius: 2, overflowX: 'auto', overflowY: 'hidden' }}>
+          <TableContainer component="div" sx={{ borderRadius: 2, overflowX: 'auto', overflowY: 'hidden', bgcolor: 'background.paper' }}>
           <Table>
             <TableHead>
                 <TableRow sx={{ backgroundColor: '#f8f9fa' }}>
