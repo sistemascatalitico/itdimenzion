@@ -1,20 +1,25 @@
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
+import { createRequire } from 'module'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const zustandInFrontend = path.resolve(__dirname, 'node_modules/zustand')
-const zustandInRoot = path.resolve(__dirname, '../node_modules/.pnpm')
-// En pnpm, zustand está en .pnpm. Buscar el primer match (el path exacto puede variar)
-const pnpmZustandMatch = fs.existsSync(zustandInRoot) && fs.readdirSync(zustandInRoot)
-  .find(d => d.startsWith('zustand@'))
-const zustandPath = fs.existsSync(zustandInFrontend)
-  ? zustandInFrontend
-  : pnpmZustandMatch
-    ? path.resolve(zustandInRoot, pnpmZustandMatch, 'node_modules/zustand')
-    : zustandInFrontend // fallback
+const rootDir = path.resolve(__dirname, '..')
+
+// Resolver zustand: en Vercel pnpm no crea frontend/node_modules, solo raíz
+function resolveZustandPath(): string {
+  const inFrontend = path.resolve(__dirname, 'node_modules/zustand')
+  if (fs.existsSync(inFrontend)) return inFrontend
+  try {
+    const req = createRequire(path.resolve(rootDir, 'package.json'))
+    return req.resolve('zustand')
+  } catch {
+    return inFrontend
+  }
+}
+const zustandPath = resolveZustandPath()
 
 // https://vite.dev/config/
 export default defineConfig({
