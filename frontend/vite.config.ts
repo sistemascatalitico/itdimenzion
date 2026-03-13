@@ -6,14 +6,14 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const rootDir = path.resolve(__dirname, '..')
 
-// Resolver zustand: en Vercel pnpm no crea frontend/node_modules, solo raíz
+// Resolver zustand: frontend tiene la dep, pero en Vercel pnpm solo crea node_modules en raíz
+// Usar frontend/package.json para que Node busque en frontend → parent (raíz con .pnpm)
 function resolveZustandPath(): string {
   const inFrontend = path.resolve(__dirname, 'node_modules/zustand')
   if (fs.existsSync(inFrontend)) return inFrontend
   try {
-    const req = createRequire(path.resolve(rootDir, 'package.json'))
+    const req = createRequire(path.resolve(__dirname, 'package.json'))
     return req.resolve('zustand')
   } catch {
     return inFrontend
