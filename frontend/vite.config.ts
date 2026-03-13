@@ -1,37 +1,49 @@
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
-import { createRequire } from 'module'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-// Resolver zustand: frontend tiene la dep, pero en Vercel pnpm solo crea node_modules en raíz
-// Usar frontend/package.json para que Node busque en frontend → parent (raíz con .pnpm)
-function resolveZustandPath(): string {
+// Resolver base de zustand (frontend o raíz/.pnpm para Vercel)
+function getZustandDir(): string | null {
   const inFrontend = path.resolve(__dirname, 'node_modules/zustand')
   if (fs.existsSync(inFrontend)) return inFrontend
-  try {
-    const req = createRequire(path.resolve(__dirname, 'package.json'))
-    return req.resolve('zustand')
-  } catch {
-    return inFrontend
+  const pnpmRoot = path.resolve(__dirname, '../node_modules/.pnpm')
+  if (fs.existsSync(pnpmRoot)) {
+    const match = fs.readdirSync(pnpmRoot).find((d) => d.startsWith('zustand@'))
+    if (match) {
+      const zustandDir = path.join(pnpmRoot, match, 'node_modules/zustand')
+      if (fs.existsSync(zustandDir)) return zustandDir
+    }
+  }
+  return null
+}
+
+// Plugin: resolver zustand en Vercel (pnpm solo crea node_modules en raíz)
+function resolveZustandPlugin() {
+  return {
+    name: 'resolve-zustand',
+    enforce: 'pre' as const,
+    resolveId(id: string) {
+      if (id !== 'zustand' && !id.startsWith('zustand/')) return null
+      const zustandDir = getZustandDir()
+      if (!zustandDir) return null
+      const subpath = id === 'zustand' ? 'index.js' : id.replace('zustand/', '') + '.js'
+      const entry = path.join(zustandDir, subpath)
+      return fs.existsSync(entry) ? entry : null
+    },
   }
 }
-const zustandPath = resolveZustandPath()
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [resolveZustandPlugin(), react()],
   optimizeDeps: {
     include: ['zustand'],
   },
   resolve: {
-    alias: {
-      // Forzar resolución de zustand (pnpm monorepo: frontend o raíz/.pnpm)
-      zustand: zustandPath,
-    },
     dedupe: ['zustand', 'react', 'react-dom'],
   },
   esbuild: {
