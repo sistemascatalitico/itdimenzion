@@ -8,7 +8,7 @@ import {
   getFieldsForAssetType, invokeReusableField,
 } from '../controllers/customFields.controller';
 
-const router = Router();
+const router: Router = Router();
 
 // Fields
 router.get('/custom-fields', authenticateToken, listFields);

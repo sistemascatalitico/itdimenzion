@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { securityConfig } from '../config/security';
-import { UserRole } from '@prisma/client';
+import { users_role } from '@prisma/client';
 
 export const hashPassword = async (password: string): Promise<string> => {
   return await bcrypt.hash(password, securityConfig.bcrypt.saltRounds);
@@ -17,7 +17,7 @@ export const comparePassword = async (
 export const generateAccessToken = (user: {
   documentNumber: string;
   email: string;
-  role: UserRole;
+  role: users_role;
   headquartersId: string;
 }): string => {
   return jwt.sign(

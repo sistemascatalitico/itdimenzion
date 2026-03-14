@@ -2,13 +2,13 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../config/database';
 import { securityConfig } from '../config/security';
-import { UserRole } from '@prisma/client';
+import { users_role } from '@prisma/client';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
     documentNumber: string;
     email: string;
-    role: UserRole;
+    role: users_role;
     headquartersId: string;
   };
 }
@@ -32,7 +32,7 @@ export const authenticateToken = async (
     const decoded = jwt.verify(token, securityConfig.jwt.secret) as {
       documentNumber: string;
       email: string;
-      role: UserRole;
+      role: users_role;
       headquartersId: string;
     };
 
@@ -86,7 +86,7 @@ export const authenticateToken = async (
   }
 };
 
-export const requireRole = (allowedRoles: UserRole[]) => {
+export const requireRole = (allowedRoles: users_role[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({
@@ -106,7 +106,7 @@ export const requireRole = (allowedRoles: UserRole[]) => {
   };
 };
 
-export const requireOwnershipOrRole = (roles: UserRole[]) => {
+export const requireOwnershipOrRole = (roles: users_role[]) => {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({

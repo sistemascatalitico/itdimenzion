@@ -14,7 +14,7 @@ import {
 } from '../controllers/assetModelDocuments.controller';
 import { uploadImage, uploadDocument } from '../middleware/upload';
 
-const router = Router();
+const router: Router = Router();
 
 // Imágenes de modelos
 router.get('/asset-models/:modelId/images', authenticateToken, listModelImages);

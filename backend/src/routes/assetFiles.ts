@@ -20,7 +20,7 @@ import {
 } from '../controllers/assetResolvedData.controller';
 import { uploadImage, uploadDocument } from '../middleware/upload';
 
-const router = Router();
+const router: Router = Router();
 
 // Imágenes de activos (solo las del activo, no del modelo)
 router.get('/assets/:assetId/images', authenticateToken, listAssetImages);

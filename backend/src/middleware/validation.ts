@@ -1,5 +1,5 @@
 import { body, param, query } from 'express-validator';
-import { DocumentType, UserRole } from '@prisma/client';
+import { users_documentType, users_role } from '@prisma/client';
 
 // Force reload - validation updated
 
@@ -32,7 +32,7 @@ export const registerValidation = [
     .withMessage('Apellido solo puede contener letras y espacios'),
     
   body('documentType')
-    .isIn(Object.values(DocumentType))
+    .isIn(Object.values(users_documentType))
     .withMessage('Tipo de documento no válido'),
     
   body('documentNumber')
@@ -129,7 +129,7 @@ export const updateProfileValidation = [
 export const createUserValidation = [
   ...registerValidation,
   body('role')
-    .isIn(Object.values(UserRole))
+    .isIn(Object.values(users_role))
     .withMessage('Rol de usuario no válido'),
 ];
 
@@ -161,7 +161,7 @@ export const updateUserValidation = [
     
   body('role')
     .optional()
-    .isIn(Object.values(UserRole))
+    .isIn(Object.values(users_role))
     .withMessage('Rol de usuario no válido'),
     
   body('status')

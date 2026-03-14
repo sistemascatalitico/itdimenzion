@@ -3,7 +3,7 @@ import { listAssets, getAsset, createAsset, updateAsset, deleteAsset, getAssetHi
 import { authenticateToken, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { users_role } from '@prisma/client';
 
-const router = Router();
+const router: Router = Router();
 
 // Todas las rutas requieren autenticación
 router.get('/assets', authenticateToken, listAssets);

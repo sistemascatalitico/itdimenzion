@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticateToken, requireRole } from '../middleware/auth';
 import { listRacks, createRack, assignToRack, removeFromRack } from '../controllers/racks.controller';
 
-const router = Router();
+const router: Router = Router();
 
 router.get('/racks', authenticateToken, listRacks);
 router.post('/racks', authenticateToken, requireRole(['SUPER_ADMIN', 'ADMIN']), createRack);

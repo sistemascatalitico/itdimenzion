@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticateToken, requireRole } from '../middleware/auth';
 import { transferAsset, createLoan, returnLoan } from '../controllers/assetTransfers.controller';
 
-const router = Router();
+const router: Router = Router();
 
 router.post('/assets/:id/transfer', authenticateToken, requireRole(['SUPER_ADMIN', 'ADMIN']), transferAsset);
 router.post('/assets/:id/loan', authenticateToken, requireRole(['SUPER_ADMIN', 'ADMIN']), createLoan);

@@ -8,7 +8,7 @@ import {
   listModels, createModel, updateModel, deleteModel,
 } from '../controllers/assetsCatalogs.controller';
 
-const router = Router();
+const router: Router = Router();
 
 // Manufacturers
 router.get('/asset-manufacturers', authenticateToken, listManufacturers);

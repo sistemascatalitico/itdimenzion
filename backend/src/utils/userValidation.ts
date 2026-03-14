@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient, users_role } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -84,7 +84,7 @@ export class UserValidation {
     username: string;
     firstName: string;
     lastName: string;
-    role: UserRole;
+    role: users_role;
     companyId?: number;
     headquartersId?: number;
   }): Promise<ValidationResult> {
@@ -115,7 +115,7 @@ export class UserValidation {
       errors.push('El apellido es requerido');
     }
 
-    if (!userData.role || !Object.values(UserRole).includes(userData.role)) {
+    if (!userData.role || !Object.values(users_role).includes(userData.role)) {
       errors.push('El rol seleccionado no es válido');
     }
 
@@ -179,9 +179,11 @@ export class UserValidation {
       username?: string;
       firstName?: string;
       lastName?: string;
-      role?: UserRole;
+      role?: users_role;
       companyId?: number;
       headquartersId?: number;
+      processId?: number;
+      jobTitleId?: number;
     }
   ): Promise<ValidationResult> {
     const errors: string[] = [];
@@ -211,7 +213,7 @@ export class UserValidation {
       errors.push('El apellido es requerido');
     }
 
-    if (userData.role !== undefined && (!userData.role || !Object.values(UserRole).includes(userData.role))) {
+    if (userData.role !== undefined && (!userData.role || !Object.values(users_role).includes(userData.role))) {
       errors.push('El rol seleccionado no es válido');
     }
 
@@ -274,23 +276,60 @@ export class UserValidation {
       }
     }
 
+    // Validate process if provided
+    if (userData.processId !== undefined) {
+      if (userData.processId) {
+        const processExists = await prisma.process.findUnique({
+          where: { id: userData.processId },
+          select: { id: true, companyId: true }
+        });
+
+        if (!processExists) {
+          errors.push('El proceso seleccionado no existe');
+        } else if (userData.companyId && processExists.companyId !== userData.companyId) {
+          errors.push('El proceso seleccionado no pertenece a la empresa especificada');
+        }
+      }
+    }
+
+    // Validate job title if provided
+    if (userData.jobTitleId !== undefined) {
+      if (userData.jobTitleId) {
+        const jobTitleExists = await prisma.jobTitle.findUnique({
+          where: { id: userData.jobTitleId },
+          select: { id: true, companyId: true, processId: true }
+        });
+
+        if (!jobTitleExists) {
+          errors.push('El cargo seleccionado no existe');
+        } else {
+          if (userData.companyId && jobTitleExists.companyId !== userData.companyId) {
+            errors.push('El cargo seleccionado no pertenece a la empresa especificada');
+          }
+          if (userData.processId && jobTitleExists.processId !== userData.processId) {
+            errors.push('El cargo seleccionado no pertenece al proceso especificado');
+          }
+        }
+      }
+    }
+
     return { isValid: errors.length === 0, errors };
   }
 
   // Check if user can manage another user based on role hierarchy
-  static canManageUser(currentUserRole: UserRole, targetUserRole: UserRole): boolean {
+  static canManageUser(currentusers_role: users_role, targetusers_role: users_role): boolean {
     const roleHierarchy = {
-      [UserRole.SUPER_ADMIN]: 1,
-      [UserRole.ADMIN]: 2,
-      [UserRole.SUPERVISOR]: 3,
-      [UserRole.USER]: 4
+      [users_role.SUPER_ADMIN]: 1,
+      [users_role.ADMIN]: 2,
+      [users_role.SUPERVISOR]: 3,
+      [users_role.USER]: 4
     };
 
-    const currentLevel = roleHierarchy[currentUserRole];
-    const targetLevel = roleHierarchy[targetUserRole];
+    const currentLevel = roleHierarchy[currentusers_role];
+    const targetLevel = roleHierarchy[targetusers_role];
 
     // SUPER_ADMIN can manage everyone
-    if (currentUserRole === UserRole.SUPER_ADMIN) {
+    if (currentusers_role === users_role.SUPER_ADMIN) {
       return true;
     }
 
@@ -299,19 +338,19 @@ export class UserValidation {
   }
 
   // Check if user can be assigned a specific role
-  static canAssignRole(currentUserRole: UserRole, targetRole: UserRole): boolean {
+  static canAssignRole(currentusers_role: users_role, targetRole: users_role): boolean {
     const roleHierarchy = {
-      [UserRole.SUPER_ADMIN]: 1,
-      [UserRole.ADMIN]: 2,
-      [UserRole.SUPERVISOR]: 3,
-      [UserRole.USER]: 4
+      [users_role.SUPER_ADMIN]: 1,
+      [users_role.ADMIN]: 2,
+      [users_role.SUPERVISOR]: 3,
+      [users_role.USER]: 4
     };
 
-    const currentLevel = roleHierarchy[currentUserRole];
+    const currentLevel = roleHierarchy[currentusers_role];
     const targetLevel = roleHierarchy[targetRole];
 
     // SUPER_ADMIN can assign any role
-    if (currentUserRole === UserRole.SUPER_ADMIN) {
+    if (currentusers_role === users_role.SUPER_ADMIN) {
       return true;
     }
 
@@ -326,30 +365,30 @@ export class UserValidation {
   }
 
   // Get manageable roles for a user
-  static getManagedRoles(currentUserRole: UserRole): UserRole[] {
-    switch (currentUserRole) {
-      case UserRole.SUPER_ADMIN:
-        return [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.USER];
-      case UserRole.ADMIN:
-        return [UserRole.SUPERVISOR, UserRole.USER];
-      case UserRole.SUPERVISOR:
-        return [UserRole.USER];
+  static getManagedRoles(currentusers_role: users_role): users_role[] {
+    switch (currentusers_role) {
+      case users_role.SUPER_ADMIN:
+        return [users_role.SUPER_ADMIN, users_role.ADMIN, users_role.SUPERVISOR, users_role.USER];
+      case users_role.ADMIN:
+        return [users_role.SUPERVISOR, users_role.USER];
+      case users_role.SUPERVISOR:
+        return [users_role.USER];
       default:
         return [];
     }
   }
 
   // Get assignable roles for a user
-  static getAssignableRoles(currentUserRole: UserRole): UserRole[] {
-    switch (currentUserRole) {
-      case UserRole.SUPER_ADMIN:
-        return [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.USER];
-      case UserRole.ADMIN:
-        return [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.USER];
-      case UserRole.SUPERVISOR:
-        return [UserRole.SUPERVISOR, UserRole.USER];
+  static getAssignableRoles(currentusers_role: users_role): users_role[] {
+    switch (currentusers_role) {
+      case users_role.SUPER_ADMIN:
+        return [users_role.SUPER_ADMIN, users_role.ADMIN, users_role.SUPERVISOR, users_role.USER];
+      case users_role.ADMIN:
+        return [users_role.ADMIN, users_role.SUPERVISOR, users_role.USER];
+      case users_role.SUPERVISOR:
+        return [users_role.SUPERVISOR, users_role.USER];
       default:
-        return [UserRole.USER];
+        return [users_role.USER];
     }
   }
 }

@@ -2,7 +2,7 @@ import express from 'express';
 import { authenticateToken } from '../middleware/auth';
 import * as suppliersController from '../controllers/suppliers.controller';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 /**
  * POST /api/suppliers

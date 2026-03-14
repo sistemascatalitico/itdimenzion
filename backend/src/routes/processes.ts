@@ -2,7 +2,7 @@ import express from 'express';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 import { prisma } from '../config/database';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // GET /api/processes - Obtener todos los procesos
 router.get('/', authenticateToken, async (req, res) => {

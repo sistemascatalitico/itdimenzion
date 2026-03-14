@@ -2,7 +2,7 @@ import express from 'express';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 import * as formBuilderController from '../controllers/formBuilder.controller';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // =========================
 // FORMS ROUTES

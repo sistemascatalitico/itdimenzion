@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticateToken, requireRole } from '../middleware/auth';
 import { listComponents, addComponent, removeComponent, moveComponent } from '../controllers/assetComponents.controller';
 
-const router = Router();
+const router: Router = Router();
 
 router.get('/assets/:id/components', authenticateToken, listComponents);
 router.post('/assets/:id/components', authenticateToken, requireRole(['SUPER_ADMIN', 'ADMIN']), addComponent);
