@@ -31,7 +31,9 @@ export const authRateLimit = rateLimit({
   skipSuccessfulRequests: true,
 });
 
-export const helmetMiddleware = helmet(securityConfig.helmet);
+export const helmetMiddleware = securityConfig.helmet
+  ? helmet(securityConfig.helmet)
+  : (_req: Request, _res: Response, next: NextFunction) => next();
 
 export const sanitizeInput = (req: Request, res: Response, next: NextFunction) => {
   const sanitizeObject = (obj: any): any => {

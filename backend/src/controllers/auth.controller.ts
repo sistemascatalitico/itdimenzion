@@ -78,7 +78,7 @@ export const register = async (req: Request, res: Response) => {
     // Verificar que la sede existe
     const headquarters = await prisma.headquarters.findUnique({
       where: { id: headquartersId },
-      include: { company: true },
+      include: { Company: true },
     });
 
     if (!headquarters || headquarters.status !== 'ACTIVE') {
@@ -122,6 +122,7 @@ export const register = async (req: Request, res: Response) => {
         emailVerificationToken,
         role: 'USER', // Rol por defecto
         status: 'ACTIVE',
+        updatedAt: new Date(), // Requerido porque no tiene @default en el schema
       },
       select: {
         documentNumber: true,
@@ -133,11 +134,11 @@ export const register = async (req: Request, res: Response) => {
         role: true,
         status: true,
         createdAt: true,
-        headquarters: {
+        Headquarters: {
           select: {
             id: true,
             name: true,
-            company: {
+            Company: {
               select: {
                 id: true,
                 name: true,
@@ -194,9 +195,9 @@ export const login = async (req: Request, res: Response) => {
     const user = await prisma.user.findUnique({
       where: { email: userEmail },
       include: {
-        headquarters: {
+        Headquarters: {
           include: {
-            company: true,
+            Company: true,
           },
         },
       },
@@ -230,6 +231,7 @@ export const login = async (req: Request, res: Response) => {
       
       await prisma.loginLog.create({
         data: {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           userId: user.documentNumber,
           ipAddress: loginData.ipAddress || 'unknown',
           userAgent: loginData.userAgent || 'unknown',
@@ -268,6 +270,7 @@ export const login = async (req: Request, res: Response) => {
       
       await prisma.loginLog.create({
         data: {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           userId: user.documentNumber,
           ipAddress: loginData.ipAddress || 'unknown',
           userAgent: loginData.userAgent || 'unknown',
@@ -294,6 +297,7 @@ export const login = async (req: Request, res: Response) => {
       
       await prisma.loginLog.create({
         data: {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           userId: user.documentNumber,
           ipAddress: loginData.ipAddress || 'unknown',
           userAgent: loginData.userAgent || 'unknown',
@@ -333,6 +337,7 @@ export const login = async (req: Request, res: Response) => {
     // Guardar refresh token
     await prisma.refreshToken.create({
       data: {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         token: refreshToken,
         userId: user.documentNumber,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días
@@ -342,6 +347,7 @@ export const login = async (req: Request, res: Response) => {
     // Log de login exitoso
     await prisma.loginLog.create({
       data: {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         userId: user.documentNumber,
         ipAddress: loginData.ipAddress || 'unknown',
         userAgent: loginData.userAgent || 'unknown',
@@ -366,13 +372,23 @@ export const login = async (req: Request, res: Response) => {
       message: 'Login exitoso',
       accessToken,
       user: {
+        id: user.documentNumber,
         documentNumber: user.documentNumber,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        documentType: user.documentType,
         role: user.role,
         status: user.status,
-        headquarters: user.headquarters,
+        emailVerified: !!user.emailVerified,
+        twoFactorEnabled: !!user.twoFactorEnabled,
+        lastLogin: new Date().toISOString(), // Recién actualizado en el login
+        createdAt: user.createdAt?.toISOString?.() || new Date().toISOString(),
+        headquarters: user.Headquarters ? {
+          id: user.Headquarters.id,
+          name: user.Headquarters.name,
+          company: user.Headquarters.Company ? { id: user.Headquarters.Company.id, name: user.Headquarters.Company.name } : null,
+        } : null,
       },
       statusCode: 200,
     });
@@ -407,9 +423,9 @@ export const refreshToken = async (req: Request, res: Response) => {
     const storedToken = await prisma.refreshToken.findUnique({
       where: { token },
       include: {
-        user: {
+        User: {
           include: {
-            headquarters: true,
+            Headquarters: true,
           },
         },
       },
@@ -430,7 +446,7 @@ export const refreshToken = async (req: Request, res: Response) => {
     }
 
     // Verificar que el usuario está activo
-    if (storedToken.user.status !== 'ACTIVE') {
+    if (storedToken.User.status !== 'ACTIVE') {
       await prisma.refreshToken.delete({
         where: { id: storedToken.id },
       });
@@ -443,10 +459,10 @@ export const refreshToken = async (req: Request, res: Response) => {
 
     // Generar nuevo access token
     const newAccessToken = generateAccessToken({
-      documentNumber: storedToken.user.documentNumber,
-      email: storedToken.user.email,
-      role: storedToken.user.role,
-      headquartersId: storedToken.user.headquartersId?.toString() || '0',
+      documentNumber: storedToken.User.documentNumber,
+      email: storedToken.User.email,
+      role: storedToken.User.role,
+      headquartersId: storedToken.User.headquartersId?.toString() || '0',
     });
 
     res.json({
@@ -522,11 +538,11 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response) => {
         profilePicture: true,
         lastLogin: true,
         createdAt: true,
-        headquarters: {
+        Headquarters: {
           select: {
             id: true,
             name: true,
-            company: {
+            Company: {
               select: {
                 id: true,
                 name: true,
@@ -534,18 +550,16 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response) => {
             },
           },
         },
-        jobTitle: {
+        JobTitle: {
           select: {
             id: true,
             name: true,
-            description: true,
           },
         },
-        process: {
+        Process: {
           select: {
             id: true,
             name: true,
-            description: true,
           },
         },
       },
