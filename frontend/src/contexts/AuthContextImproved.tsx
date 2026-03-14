@@ -110,24 +110,18 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
-  }
-  return context;
-};
+export { useAuth } from '../hooks/useAuth';
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
-// Configuración de timeouts
-const SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutos en millisegundos
-const WARNING_TIME = 2 * 60 * 1000; // Mostrar warning 2 minutos antes
-const CHECK_INTERVAL = 30 * 1000; // Verificar cada 30 segundos
-
+// Provider mínimo: la app usa Zustand; este solo cumple la firma.
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  return <>{children}</>;
+};
+
+const AuthProviderLegacy: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const warningRef = useRef<NodeJS.Timeout | null>(null);

@@ -110,13 +110,9 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
-  }
-  return context;
-};
+// Re-exportar el hook de Zustand para que cualquier import desde este archivo
+// use el mismo estado global y no exija AuthProvider (evita el error en consola).
+export { useAuth } from '../hooks/useAuth';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -127,7 +123,13 @@ const SESSION_TIMEOUT = 8 * 60 * 60 * 1000; // 8 horas en millisegundos
 const WARNING_TIME = 10 * 60 * 1000; // Mostrar warning 10 minutos antes
 const CHECK_INTERVAL = 5 * 60 * 1000; // Verificar cada 5 minutos
 
+// Provider mínimo: la app usa Zustand (ZustandProvider). Este provider solo
+// cumple la firma por si algo lo usa; no duplica estado.
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  return <>{children}</>;
+};
+
+const AuthProviderLegacy: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const warningRef = useRef<NodeJS.Timeout | null>(null);
