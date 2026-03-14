@@ -7,19 +7,1293 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  SUPER_ADMIN
-  ADMIN
-  SUPERVISOR
-  USER
+model AssetAssignmentDoc {
+  id              Int               @id @default(autoincrement())
+  companyId       Int
+  docNumber       String
+  pdfUrl          String?
+  signedByUserId  String?
+  signedAt        DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime
+  Company         Company           @relation(fields: [companyId], references: [id])
+  AssetAssignment AssetAssignment[]
+
+  @@unique([companyId, docNumber])
+  @@index([companyId])
+  @@map("asset_assignment_docs")
 }
 
-enum Status {
-  ACTIVE
-  INACTIVE
+model AssetAssignment {
+  id                  Int                              @id @default(autoincrement())
+  assetId             Int
+  assignmentType      asset_assignments_assignmentType
+  assignedToUserId    String?
+  assignedToCompanyId Int?
+  assignedToHqId      Int?
+  assignmentDocId     Int?
+  startDate           DateTime                         @default(now())
+  endDate             DateTime?
+  status              asset_assignments_status         @default(ACTIVE)
+  commentary          String?                          @db.Text
+  createdAt           DateTime                         @default(now())
+  updatedAt           DateTime
+  Asset               Asset                            @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  Company             Company?                         @relation(fields: [assignedToCompanyId], references: [id])
+  Headquarters        Headquarters?                    @relation(fields: [assignedToHqId], references: [id])
+  User                User?                            @relation(fields: [assignedToUserId], references: [documentNumber])
+  AssetAssignmentDoc  AssetAssignmentDoc?              @relation(fields: [assignmentDocId], references: [id])
+
+  @@index([assetId, status])
+  @@index([assignedToCompanyId], map: "asset_assignments_assignedToCompanyId_fkey")
+  @@index([assignedToHqId], map: "asset_assignments_assignedToHqId_fkey")
+  @@index([assignedToUserId])
+  @@index([assignmentDocId], map: "asset_assignments_assignmentDocId_fkey")
+  @@map("asset_assignments")
 }
 
-enum DocumentType {
+model AssetCategory {
+  id                   Int                     @id @default(autoincrement())
+  name                 String                  @unique
+  label                String                  @unique
+  description          String?                 @db.Text
+  status               asset_categories_status @default(ACTIVE)
+  isPersistent         Boolean                 @default(false)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime
+  createdBy            String?
+  updatedBy            String?
+  AssetCustomSchema    AssetCustomSchema[]
+  AssetGroup           AssetGroup[]
+  AssetType            AssetType[]
+  Asset                Asset[]
+  Form                 Form[]
+  ManufacturerCategory ManufacturerCategory[]
+
+  @@map("asset_categories")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model AssetComponent {
+  id                                            Int                             @id @default(autoincrement())
+  parentAssetId                                 Int
+  childAssetId                                  Int
+  relationRole                                  String?
+  connectionType                                asset_components_connectionType @default(COMPONENT)
+  isMandatory                                   Boolean                         @default(false)
+  isPhysical                                    Boolean                         @default(true)
+  notes                                         String?                         @db.Text
+  quantity                                      Int                             @default(1)
+  positionIndex                                 Int?
+  status                                        asset_components_status         @default(ACTIVE)
+  createdAt                                     DateTime                        @default(now())
+  updatedAt                                     DateTime?                       @default(now()) @db.Timestamp(0)
+  removedAt                                     DateTime?
+  createdById                                   String?
+  removedById                                   String?
+  assets_asset_components_childAssetIdToassets  Asset                           @relation("asset_components_childAssetIdToassets", fields: [childAssetId], references: [id], onDelete: Cascade)
+  assets_asset_components_parentAssetIdToassets Asset                           @relation("asset_components_parentAssetIdToassets", fields: [parentAssetId], references: [id], onDelete: Cascade)
+
+  @@unique([childAssetId, status])
+  @@index([childAssetId])
+  @@index([parentAssetId])
+  @@index([isMandatory], map: "idx_components_mandatory")
+  @@index([parentAssetId, connectionType], map: "idx_components_type")
+  @@index([updatedAt], map: "idx_components_updated")
+  @@map("asset_components")
+}
+
+model AssetCustomSchema {
+  id               Int                         @id @default(autoincrement())
+  name             String
+  scope            asset_custom_schemas_scope
+  categoryId       Int?
+  groupId          Int?
+  typeId           Int?
+  schemaJson       Json
+  status           asset_custom_schemas_status @default(ACTIVE)
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime
+  AssetCategory    AssetCategory?              @relation(fields: [categoryId], references: [id])
+  AssetGroup       AssetGroup?                 @relation(fields: [groupId], references: [id])
+  AssetType        AssetType?                  @relation(fields: [typeId], references: [id])
+  AssetCustomValue AssetCustomValue[]
+
+  @@index([categoryId], map: "asset_custom_schemas_categoryId_fkey")
+  @@index([groupId], map: "asset_custom_schemas_groupId_fkey")
+  @@index([typeId], map: "asset_custom_schemas_typeId_fkey")
+  @@map("asset_custom_schemas")
+}
+
+model AssetCustomValue {
+  id                Int               @id @default(autoincrement())
+  assetId           Int
+  schemaId          Int
+  valuesJson        Json
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime
+  Asset             Asset             @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  AssetCustomSchema AssetCustomSchema @relation(fields: [schemaId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, schemaId])
+  @@index([schemaId], map: "asset_custom_values_schemaId_fkey")
+  @@map("asset_custom_values")
+}
+
+model AssetDocument {
+  id                                                            Int                     @id @default(autoincrement())
+  documentNumber                                                String?                 @db.VarChar(50)
+  documentTypeId                                                Int?
+  status                                                        asset_documents_status  @default(DRAFT)
+  formId                                                        Int?
+  formData                                                      Json?
+  formVersion                                                   Int?
+  fromUserId                                                    String?
+  fromCompanyId                                                 Int?
+  fromHeadquartersId                                            Int?
+  fromLocation                                                  String?                 @db.VarChar(500)
+  toUserId                                                      String?
+  toCompanyId                                                   Int?
+  toHeadquartersId                                              Int?
+  toLocation                                                    String?                 @db.VarChar(500)
+  assetId                                                       Int?
+  docType                                                       asset_documents_docType
+  title                                                         String
+  fileUrl                                                       String                  @db.Text
+  externalRef                                                   String?
+  supplier                                                      String?
+  amount                                                        Decimal?                @db.Decimal(16, 2)
+  documentDate                                                  DateTime?
+  effectiveDate                                                 DateTime?               @db.DateTime(0)
+  expirationDate                                                DateTime?               @db.DateTime(0)
+  preparedBy                                                    String?
+  preparedDate                                                  DateTime?               @db.DateTime(0)
+  deliveredBy                                                   String?
+  deliveredDate                                                 DateTime?               @db.DateTime(0)
+  receivedBy                                                    String?
+  receivedDate                                                  DateTime?               @db.DateTime(0)
+  pdfUrl                                                        String?                 @db.Text
+  signatureUrl                                                  String?                 @db.Text
+  photos                                                        Json?
+  deliveryNotes                                                 String?                 @db.Text
+  receptionNotes                                                String?                 @db.Text
+  observations                                                  String?                 @db.Text
+  commentary                                                    String?                 @db.Text
+  createdAt                                                     DateTime                @default(now())
+  updatedAt                                                     DateTime
+  createdBy                                                     String?
+  documentRef                                                   String?
+  fileSize                                                      Int?
+  isActive                                                      Boolean                 @default(true)
+  supersededBy                                                  Int?
+  mimeType                                                      String?
+  relatedCompanyId                                              Int?
+  relatedDocumentId                                             Int?
+  relatedUserId                                                 String?
+  updatedBy                                                     String?
+  Asset                                                         Asset?                  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  users_asset_documents_deliveredByTousers                      User?                   @relation("asset_documents_deliveredByTousers", fields: [deliveredBy], references: [documentNumber], onUpdate: NoAction, map: "fk_asset_documents_delivered_by")
+  DocumentType                                                  DocumentType?           @relation(fields: [documentTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_asset_documents_document_type")
+  Form                                                          Form?                   @relation(fields: [formId], references: [id], onUpdate: NoAction, map: "fk_asset_documents_form")
+  companies_asset_documents_fromCompanyIdTocompanies            Company?                @relation("asset_documents_fromCompanyIdTocompanies", fields: [fromCompanyId], references: [id], onUpdate: NoAction, map: "fk_asset_documents_from_company")
+  headquarters_asset_documents_fromHeadquartersIdToheadquarters Headquarters?           @relation("asset_documents_fromHeadquartersIdToheadquarters", fields: [fromHeadquartersId], references: [id], onUpdate: NoAction, map: "fk_asset_documents_from_hq")
+  users_asset_documents_fromUserIdTousers                       User?                   @relation("asset_documents_fromUserIdTousers", fields: [fromUserId], references: [documentNumber], onUpdate: NoAction, map: "fk_asset_documents_from_user")
+  users_asset_documents_preparedByTousers                       User?                   @relation("asset_documents_preparedByTousers", fields: [preparedBy], references: [documentNumber], onUpdate: NoAction, map: "fk_asset_documents_prepared_by")
+  users_asset_documents_receivedByTousers                       User?                   @relation("asset_documents_receivedByTousers", fields: [receivedBy], references: [documentNumber], onUpdate: NoAction, map: "fk_asset_documents_received_by")
+  AssetDocument                                                 AssetDocument?          @relation("asset_documentsToasset_documents", fields: [supersededBy], references: [id], onUpdate: NoAction, map: "fk_asset_documents_superseded_by")
+  other_asset_documents                                         AssetDocument[]         @relation("asset_documentsToasset_documents")
+  companies_asset_documents_toCompanyIdTocompanies              Company?                @relation("asset_documents_toCompanyIdTocompanies", fields: [toCompanyId], references: [id], onUpdate: NoAction, map: "fk_asset_documents_to_company")
+  headquarters_asset_documents_toHeadquartersIdToheadquarters   Headquarters?           @relation("asset_documents_toHeadquartersIdToheadquarters", fields: [toHeadquartersId], references: [id], onUpdate: NoAction, map: "fk_asset_documents_to_hq")
+  users_asset_documents_toUserIdTousers                         User?                   @relation("asset_documents_toUserIdTousers", fields: [toUserId], references: [documentNumber], onUpdate: NoAction, map: "fk_asset_documents_to_user")
+  AssetStatusHistory                                            AssetStatusHistory[]
+  DocumentAsset                                                 DocumentAsset[]
+
+  @@index([assetId, docType])
+  @@index([assetId, isActive])
+  @@index([relatedDocumentId])
+  @@index([deliveredBy], map: "fk_asset_documents_delivered_by")
+  @@index([fromCompanyId], map: "fk_asset_documents_from_company")
+  @@index([fromHeadquartersId], map: "fk_asset_documents_from_hq")
+  @@index([fromUserId], map: "fk_asset_documents_from_user")
+  @@index([preparedBy], map: "fk_asset_documents_prepared_by")
+  @@index([receivedBy], map: "fk_asset_documents_received_by")
+  @@index([supersededBy], map: "fk_asset_documents_superseded_by")
+  @@index([toHeadquartersId], map: "fk_asset_documents_to_hq")
+  @@index([isActive, status], map: "idx_asset_documents_active_status")
+  @@index([toCompanyId, documentDate], map: "idx_asset_documents_company_date")
+  @@index([createdAt], map: "idx_asset_documents_created_at")
+  @@index([formId], map: "idx_asset_documents_form")
+  @@index([documentNumber], map: "idx_asset_documents_number")
+  @@index([documentTypeId, status], map: "idx_asset_documents_type_status")
+  @@index([toUserId, isActive], map: "idx_asset_documents_user_active")
+  @@map("asset_documents")
+}
+
+model AssetFieldValue {
+  id             Int            @id @default(autoincrement())
+  assetId        Int
+  fieldId        Int
+  valueText      String?
+  valueNumber    Float?
+  valueDecimal   Decimal?       @db.Decimal(20, 6)
+  valueBoolean   Boolean?
+  valueDate      DateTime?
+  valueJson      Json?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime
+  Asset          Asset          @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  CustomFieldDef CustomFieldDef @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, fieldId])
+  @@index([fieldId])
+  @@map("asset_field_values")
+}
+
+model AssetGroup {
+  id                Int                 @id @default(autoincrement())
+  name              String              @unique
+  description       String?             @db.Text
+  status            asset_groups_status @default(ACTIVE)
+  isSystem          Boolean             @default(false)
+  categoryId        Int
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime
+  createdBy         String?
+  updatedBy         String?
+  label             String?
+  AssetCustomSchema AssetCustomSchema[]
+  AssetCategory     AssetCategory       @relation(fields: [categoryId], references: [id])
+  AssetType         AssetType[]
+  Asset             Asset[]
+  Form              Form[]
+
+  @@index([categoryId], map: "asset_groups_categoryId_fkey")
+  @@map("asset_groups")
+}
+
+model AssetImage {
+  id        Int                    @id @default(autoincrement())
+  assetId   Int
+  imageUrl  String                 @db.Text
+  imageType asset_images_imageType @default(PHOTO)
+  title     String?
+  order     Int                    @default(0)
+  createdAt DateTime               @default(now())
+  createdBy String?
+  Asset     Asset                  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@map("asset_images")
+}
+
+model AssetLicense {
+  id               Int                   @id @default(autoincrement())
+  assetId          Int
+  licenseId        Int
+  assignedAt       DateTime              @default(now())
+  revokedAt        DateTime?
+  status           asset_licenses_status @default(ACTIVE)
+  assignedToUserId String?
+  Asset            Asset                 @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  User             User?                 @relation(fields: [assignedToUserId], references: [documentNumber])
+  SoftwareLicense  SoftwareLicense       @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, licenseId, status])
+  @@index([assignedToUserId], map: "asset_licenses_assignedToUserId_fkey")
+  @@index([licenseId], map: "asset_licenses_licenseId_fkey")
+  @@map("asset_licenses")
+}
+
+model AssetManufacturer {
+  id                   Int                        @id @default(autoincrement())
+  name                 String                     @unique
+  description          String?                    @db.Text
+  website              String?
+  status               asset_manufacturers_status @default(ACTIVE)
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime
+  createdBy            String?
+  updatedBy            String?
+  logo                 String?                    @db.Text
+  AssetModel           AssetModel[]
+  ManufacturerCategory ManufacturerCategory[]
+
+  @@map("asset_manufacturers")
+}
+
+model AssetModelDocument {
+  id         Int                           @id @default(autoincrement())
+  modelId    Int
+  docType    asset_model_documents_docType
+  title      String
+  fileUrl    String                        @db.Text
+  fileSize   Int?
+  mimeType   String?
+  createdAt  DateTime                      @default(now())
+  createdBy  String?
+  AssetModel AssetModel                    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@index([modelId])
+  @@map("asset_model_documents")
+}
+
+model AssetModelImage {
+  id         Int                          @id @default(autoincrement())
+  modelId    Int
+  imageUrl   String                       @db.Text
+  imageType  asset_model_images_imageType @default(PHOTO)
+  title      String?
+  order      Int                          @default(0)
+  createdAt  DateTime                     @default(now())
+  createdBy  String?
+  AssetModel AssetModel                   @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@index([modelId])
+  @@map("asset_model_images")
+}
+
+model AssetModel {
+  id                 Int                  @id @default(autoincrement())
+  name               String
+  description        String?              @db.Text
+  manufacturerId     Int
+  status             asset_models_status  @default(ACTIVE)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime
+  createdBy          String?
+  updatedBy          String?
+  partNumber         String?
+  specsJson          Json?
+  typeId             Int?
+  referenceImage     String?              @db.Text
+  AssetModelDocument AssetModelDocument[]
+  AssetModelImage    AssetModelImage[]
+  AssetManufacturer  AssetManufacturer    @relation(fields: [manufacturerId], references: [id])
+  AssetType          AssetType?           @relation(fields: [typeId], references: [id])
+  Asset              Asset[]
+
+  @@unique([name, manufacturerId])
+  @@index([manufacturerId], map: "asset_models_manufacturerId_fkey")
+  @@index([typeId], map: "asset_models_typeId_fkey")
+  @@map("asset_models")
+}
+
+model AssetStatusHistory {
+  id                         Int                                  @id @default(autoincrement())
+  assetId                    Int
+  previousStatus             asset_status_history_previousStatus?
+  newStatus                  asset_status_history_newStatus
+  documentId                 Int?
+  changeReason               String?                              @db.Text
+  changedBy                  String
+  changedAt                  DateTime?                            @default(now()) @db.Timestamp(0)
+  rollbackId                 Int?
+  Asset                      Asset                                @relation(fields: [assetId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "asset_status_history_ibfk_1")
+  AssetDocument              AssetDocument?                       @relation(fields: [documentId], references: [id], onUpdate: NoAction, map: "asset_status_history_ibfk_2")
+  User                       User                                 @relation(fields: [changedBy], references: [documentNumber], onUpdate: NoAction, map: "asset_status_history_ibfk_3")
+  AssetStatusHistory         AssetStatusHistory?                  @relation("asset_status_historyToasset_status_history", fields: [rollbackId], references: [id], onUpdate: NoAction, map: "asset_status_history_ibfk_4")
+  other_asset_status_history AssetStatusHistory[]                 @relation("asset_status_historyToasset_status_history")
+
+  @@index([assetId, changedAt], map: "idx_asset_status_history_asset_date")
+  @@index([documentId], map: "idx_asset_status_history_document")
+  @@index([newStatus], map: "idx_asset_status_history_new_status")
+  @@index([changedBy], map: "idx_asset_status_history_user")
+  @@index([rollbackId], map: "rollbackId")
+  @@map("asset_status_history")
+}
+
+model AssetChangeHistory {
+  id           Int      @id @default(autoincrement())
+  assetId      Int
+  fieldName    String
+  oldValue     String?  @db.Text
+  newValue     String?  @db.Text
+  changedBy    String
+  changedAt    DateTime @default(now())
+  changeReason String?  @db.Text
+  ipAddress    String?
+  userAgent    String?
+
+  Asset Asset @relation("AssetChangeHistory", fields: [assetId], references: [id], onDelete: Cascade)
+  User  User  @relation("AssetChangeHistory", fields: [changedBy], references: [documentNumber])
+
+  @@index([assetId, changedAt])
+  @@index([changedBy])
+  @@map("asset_change_history")
+}
+
+model AssetTransfer {
+  id                                                            Int                          @id @default(autoincrement())
+  assetId                                                       Int
+  transferType                                                  asset_transfers_transferType
+  fromCompanyId                                                 Int?
+  toCompanyId                                                   Int?
+  fromHeadquartersId                                            Int?
+  toHeadquartersId                                              Int?
+  providerId                                                    Int?
+  startDate                                                     DateTime
+  expectedReturnDate                                            DateTime?
+  endDate                                                       DateTime?
+  status                                                        asset_transfers_status       @default(DRAFT)
+  docNumber                                                     String?
+  notes                                                         String?                      @db.Text
+  createdAt                                                     DateTime                     @default(now())
+  updatedAt                                                     DateTime
+  Asset                                                         Asset                        @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  companies_asset_transfers_fromCompanyIdTocompanies            Company?                     @relation("asset_transfers_fromCompanyIdTocompanies", fields: [fromCompanyId], references: [id])
+  headquarters_asset_transfers_fromHeadquartersIdToheadquarters Headquarters?                @relation("asset_transfers_fromHeadquartersIdToheadquarters", fields: [fromHeadquartersId], references: [id])
+  IspProvider                                                   IspProvider?                 @relation(fields: [providerId], references: [id])
+  companies_asset_transfers_toCompanyIdTocompanies              Company?                     @relation("asset_transfers_toCompanyIdTocompanies", fields: [toCompanyId], references: [id])
+  headquarters_asset_transfers_toHeadquartersIdToheadquarters   Headquarters?                @relation("asset_transfers_toHeadquartersIdToheadquarters", fields: [toHeadquartersId], references: [id])
+
+  @@index([assetId, transferType, status])
+  @@index([fromCompanyId])
+  @@index([fromHeadquartersId])
+  @@index([providerId], map: "asset_transfers_providerId_fkey")
+  @@index([toCompanyId])
+  @@index([toHeadquartersId])
+  @@map("asset_transfers")
+}
+
+model AssetType {
+  id                Int                 @id @default(autoincrement())
+  groupId           Int
+  name              String
+  status            asset_types_status  @default(ACTIVE)
+  allowsConnections Boolean             @default(false)
+  connectionConfig  Json?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime
+  categoryId        Int
+  description       String?             @db.Text
+  label             String?
+  formTemplateId    Int?                @unique
+  form_template_id  Int?                @unique(map: "idx_asset_type_form_unique")
+  AssetCustomSchema AssetCustomSchema[]
+  AssetModel        AssetModel[]
+  AssetCategory     AssetCategory       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  AssetGroup        AssetGroup          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  Form              Form?               @relation(fields: [form_template_id], references: [id], onUpdate: NoAction, map: "fk_asset_type_form")
+  Asset             Asset[]
+
+  @@unique([groupId, name])
+  @@index([categoryId])
+  @@index([formTemplateId])
+  @@index([allowsConnections], map: "idx_asset_types_allows_connections")
+  @@index([form_template_id], map: "idx_asset_types_form")
+  @@map("asset_types")
+}
+
+model Asset {
+  id                                                      Int                  @id @default(autoincrement())
+  name                                                    String
+  description                                             String?              @db.Text
+  serialNumber                                            String?              @unique
+  status                                                  assets_status        @default(ACTIVE)
+  condition                                               assets_condition     @default(NEW)
+  purchaseDate                                            DateTime?
+  warrantyExpiration                                      DateTime?
+  notes                                                   String?              @db.Text
+  categoryId                                              Int
+  modelId                                                 Int?
+  groupId                                                 Int
+  companyId                                               Int?
+  headquartersId                                          Int?
+  assignedUserId                                          String?
+  createdAt                                               DateTime             @default(now())
+  updatedAt                                               DateTime
+  createdById                                             String
+  updatedById                                             String?
+  isDeleted                                               Boolean              @default(false)
+  deletedAt                                               DateTime?            @db.Timestamp(0)
+  deletedBy                                               String?
+  deletionReason                                          String?              @db.Text
+  restoredAt                                              DateTime?            @db.Timestamp(0)
+  restoredBy                                              String?
+  restorationReason                                       String?              @db.Text
+  assetCode                                               String?              @unique
+  commentary                                              String?              @db.Text
+  location                                                String?
+  purchaseValue                                           Decimal?             @db.Decimal(16, 2)
+  purchasedByCompanyId                                    Int?
+  typeId                                                  Int?
+  costCenter                                              String?
+  formData                                                Json?
+  formId                                                  Int?
+  formVersion                                             Int?
+  invoiceNumber                                           String?
+  processId                                               Int?
+  purchaseCompanyId                                       Int?
+  supplierId                                              Int?
+  form_id                                                 Int?
+  form_data                                               Json?
+  form_version                                            Int?
+  process_id                                              Int?
+  cost_center                                             String?              @db.VarChar(100)
+  purchase_company_id                                     Int?
+  invoice_number                                          String?              @db.VarChar(255)
+  supplier_id                                             Int?
+  AssetAssignment                                         AssetAssignment[]
+  asset_components_asset_components_childAssetIdToassets  AssetComponent[]     @relation("asset_components_childAssetIdToassets")
+  asset_components_asset_components_parentAssetIdToassets AssetComponent[]     @relation("asset_components_parentAssetIdToassets")
+  AssetCustomValue                                        AssetCustomValue[]
+  AssetDocument                                           AssetDocument[]
+  AssetFieldValue                                         AssetFieldValue[]
+  AssetImage                                              AssetImage[]
+  AssetLicense                                            AssetLicense[]
+  AssetStatusHistory                                      AssetStatusHistory[]
+  AssetChangeHistory                                      AssetChangeHistory[] @relation("AssetChangeHistory")
+  AssetTransfer                                           AssetTransfer[]
+  users_assets_assignedUserIdTousers                      User?                @relation("assets_assignedUserIdTousers", fields: [assignedUserId], references: [documentNumber])
+  AssetCategory                                           AssetCategory        @relation(fields: [categoryId], references: [id])
+  companies_assets_companyIdTocompanies                   Company?             @relation("assets_companyIdTocompanies", fields: [companyId], references: [id])
+  users_assets_createdByIdTousers                         User                 @relation("assets_createdByIdTousers", fields: [createdById], references: [documentNumber])
+  AssetGroup                                              AssetGroup           @relation(fields: [groupId], references: [id])
+  Headquarters                                            Headquarters?        @relation(fields: [headquartersId], references: [id])
+  AssetModel                                              AssetModel?          @relation(fields: [modelId], references: [id])
+  companies_assets_purchaseCompanyIdTocompanies           Company?             @relation("assets_purchaseCompanyIdTocompanies", fields: [purchaseCompanyId], references: [id])
+  companies_assets_purchasedByCompanyIdTocompanies        Company?             @relation("assets_purchasedByCompanyIdTocompanies", fields: [purchasedByCompanyId], references: [id])
+  AssetType                                               AssetType?           @relation(fields: [typeId], references: [id])
+  users_assets_updatedByIdTousers                         User?                @relation("assets_updatedByIdTousers", fields: [updatedById], references: [documentNumber])
+  users_assets_deletedByTousers                           User?                @relation("assets_deletedByTousers", fields: [deletedBy], references: [documentNumber], onUpdate: NoAction, map: "fk_assets_deletedBy")
+  Form                                                    Form?                @relation(fields: [form_id], references: [id], onUpdate: NoAction, map: "fk_assets_form")
+  Process                                                 Process?             @relation(fields: [process_id], references: [id], onUpdate: NoAction, map: "fk_assets_process")
+  companies_assets_purchase_company_idTocompanies         Company?             @relation("assets_purchase_company_idTocompanies", fields: [purchase_company_id], references: [id], onUpdate: NoAction, map: "fk_assets_purchase_company")
+  users_assets_restoredByTousers                          User?                @relation("assets_restoredByTousers", fields: [restoredBy], references: [documentNumber], onUpdate: NoAction, map: "fk_assets_restoredBy")
+  Supplier                                                Supplier?            @relation(fields: [supplier_id], references: [id], onUpdate: NoAction, map: "fk_assets_supplier")
+  DocumentAsset                                           DocumentAsset[]
+  RackAssignment                                          RackAssignment[]
+
+  @@index([assignedUserId], map: "assets_assignedUserId_fkey")
+  @@index([categoryId], map: "assets_categoryId_fkey")
+  @@index([companyId], map: "assets_companyId_fkey")
+  @@index([companyId, headquartersId])
+  @@index([createdById], map: "assets_createdById_fkey")
+  @@index([groupId], map: "assets_groupId_fkey")
+  @@index([headquartersId], map: "assets_headquartersId_fkey")
+  @@index([modelId])
+  @@index([purchaseCompanyId], map: "assets_purchaseCompanyId_fkey")
+  @@index([purchasedByCompanyId], map: "assets_purchasedByCompanyId_fkey")
+  @@index([status])
+  @@index([typeId])
+  @@index([updatedById], map: "assets_updatedById_fkey")
+  @@index([deletedBy], map: "fk_assets_deletedBy")
+  @@index([purchase_company_id], map: "fk_assets_purchase_company")
+  @@index([restoredBy], map: "fk_assets_restoredBy")
+  @@index([isDeleted, companyId], map: "idx_assets_deleted")
+  @@index([deletedAt], map: "idx_assets_deleted_at")
+  @@index([form_id], map: "idx_assets_form")
+  @@index([invoice_number], map: "idx_assets_invoice")
+  @@index([process_id], map: "idx_assets_process")
+  @@index([supplier_id], map: "idx_assets_supplier")
+  @@map("assets")
+}
+
+model AuditLog {
+  id         String   @id
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  oldValues  Json?
+  newValues  Json?
+  ipAddress  String?
+  userAgent  String?
+  timestamp  DateTime @default(now())
+
+  @@index([entityType])
+  @@index([timestamp])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+model Company {
+  id                                                       Int                       @id @default(autoincrement())
+  name                                                     String                    @unique
+  taxDocumentType                                          companies_taxDocumentType
+  taxDocumentNumber                                        String                    @unique
+  country                                                  String
+  state                                                    String
+  city                                                     String
+  addressLine1                                             String?                   @db.Text
+  addressLine2                                             String?                   @db.Text
+  phone                                                    String?
+  email                                                    String?                   @unique
+  website                                                  String?
+  commentary                                               String?                   @db.Text
+  documents                                                String?                   @db.Text
+  status                                                   companies_status          @default(ACTIVE)
+  createdAt                                                DateTime                  @default(now())
+  updatedAt                                                DateTime
+  createdBy                                                String?
+  updatedBy                                                String?
+  AssetAssignmentDoc                                       AssetAssignmentDoc[]
+  AssetAssignment                                          AssetAssignment[]
+  asset_documents_asset_documents_fromCompanyIdTocompanies AssetDocument[]           @relation("asset_documents_fromCompanyIdTocompanies")
+  asset_documents_asset_documents_toCompanyIdTocompanies   AssetDocument[]           @relation("asset_documents_toCompanyIdTocompanies")
+  asset_transfers_asset_transfers_fromCompanyIdTocompanies AssetTransfer[]           @relation("asset_transfers_fromCompanyIdTocompanies")
+  asset_transfers_asset_transfers_toCompanyIdTocompanies   AssetTransfer[]           @relation("asset_transfers_toCompanyIdTocompanies")
+  assets_assets_companyIdTocompanies                       Asset[]                   @relation("assets_companyIdTocompanies")
+  assets_assets_purchaseCompanyIdTocompanies               Asset[]                   @relation("assets_purchaseCompanyIdTocompanies")
+  assets_assets_purchasedByCompanyIdTocompanies            Asset[]                   @relation("assets_purchasedByCompanyIdTocompanies")
+  assets_assets_purchase_company_idTocompanies             Asset[]                   @relation("assets_purchase_company_idTocompanies")
+  CompanyDocumentConfig                                    CompanyDocumentConfig[]
+  FieldNumberingSequence                                   FieldNumberingSequence[]
+  Form                                                     Form[]
+  Headquarters                                             Headquarters[]
+  JobTitle                                                 JobTitle[]
+  Process                                                  Process[]
+  Rack                                                     Rack[]
+  SoftwareLicense                                          SoftwareLicense[]
+  Supplier                                                 Supplier[]
+  User                                                     User[]
+
+  @@map("companies")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model CompanyDocumentConfig {
+  id                 Int                                         @id @default(autoincrement())
+  company_id         Int
+  document_type_code company_document_configs_document_type_code
+  prefix             String                                      @db.VarChar(20)
+  format_pattern     String                                      @db.VarChar(100)
+  current_sequence   Int?                                        @default(0)
+  reset_frequency    company_document_configs_reset_frequency?   @default(yearly)
+  form_template_id   Int?
+  requires_approval  Boolean?                                    @default(false)
+  approval_levels    Int?
+  expires_after_days Int?
+  is_active          Boolean?                                    @default(true)
+  created_at         DateTime?                                   @default(now()) @db.Timestamp(0)
+  updated_at         DateTime?                                   @default(now()) @db.Timestamp(0)
+  created_by         String?
+  updated_by         String?
+  Company            Company                                     @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "company_document_configs_ibfk_1")
+  Form               Form?                                       @relation(fields: [form_template_id], references: [id], onUpdate: NoAction, map: "company_document_configs_ibfk_2")
+
+  @@unique([company_id, document_type_code], map: "unique_company_doc_type")
+  @@index([company_id, document_type_code, is_active], map: "idx_company_doc_config")
+  @@index([current_sequence], map: "idx_current_sequence")
+  @@index([form_template_id], map: "idx_form_template")
+  @@index([prefix], map: "idx_prefix")
+  @@map("company_document_configs")
+}
+
+model CustomFieldBinding {
+  id             Int                          @id @default(autoincrement())
+  scope          custom_field_bindings_scope
+  scopeId        Int
+  fieldId        Int
+  isEnabled      Boolean                      @default(true)
+  isVisible      Boolean                      @default(true)
+  isRequired     Boolean                      @default(false)
+  displayOrder   Int                          @default(0)
+  section        String?
+  status         custom_field_bindings_status @default(ACTIVE)
+  createdAt      DateTime                     @default(now())
+  updatedAt      DateTime
+  CustomFieldDef CustomFieldDef               @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([scope, scopeId, fieldId])
+  @@index([fieldId], map: "custom_field_bindings_fieldId_fkey")
+  @@index([scope, scopeId])
+  @@map("custom_field_bindings")
+}
+
+model CustomFieldDef {
+  id                 Int                      @id @default(autoincrement())
+  key                String                   @unique
+  label              String
+  type               custom_field_defs_type
+  description        String?                  @db.Text
+  config             Json?
+  status             custom_field_defs_status @default(ACTIVE)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime
+  AssetFieldValue    AssetFieldValue[]
+  CustomFieldBinding CustomFieldBinding[]
+  CustomFieldOption  CustomFieldOption[]
+
+  @@map("custom_field_defs")
+}
+
+model CustomFieldOption {
+  id             Int            @id @default(autoincrement())
+  fieldId        Int
+  value          String
+  label          String
+  order          Int            @default(0)
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime
+  CustomFieldDef CustomFieldDef @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([fieldId, value])
+  @@map("custom_field_options")
+}
+
+model DocumentAsset {
+  id             Int                             @id @default(autoincrement())
+  documentId     Int
+  assetId        Int
+  inclusionType  document_assets_inclusionType   @default(PRIMARY)
+  assetCondition document_assets_assetCondition?
+  assetStatus    document_assets_assetStatus?
+  specificNotes  String?                         @db.Text
+  serialAtMoment String?                         @db.VarChar(255)
+  photos         Json?
+  createdAt      DateTime?                       @default(now()) @db.Timestamp(0)
+  updatedAt      DateTime?                       @default(now()) @db.Timestamp(0)
+  AssetDocument  AssetDocument                   @relation(fields: [documentId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "document_assets_ibfk_1")
+  Asset          Asset                           @relation(fields: [assetId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "document_assets_ibfk_2")
+
+  @@unique([documentId, assetId], map: "unique_document_asset")
+  @@index([assetId], map: "idx_document_assets_asset")
+  @@index([documentId], map: "idx_document_assets_document")
+  @@index([inclusionType], map: "idx_document_assets_inclusion")
+  @@index([assetStatus], map: "idx_document_assets_status")
+  @@map("document_assets")
+}
+
+model DocumentType {
+  id               Int                            @id @default(autoincrement())
+  code             document_types_code            @unique(map: "code")
+  name             String                         @db.VarChar(200)
+  description      String?                        @db.Text
+  prefix           String                         @db.VarChar(10)
+  currentSequence  Int?                           @default(0)
+  formatPattern    String                         @db.VarChar(100)
+  resetFrequency   document_types_resetFrequency? @default(yearly)
+  requiresApproval Boolean?                       @default(false)
+  approvalLevels   Int?
+  expiresAfter     Int?
+  formTemplateId   Int?
+  isActive         Boolean?                       @default(true)
+  createdAt        DateTime?                      @default(now()) @db.Timestamp(0)
+  updatedAt        DateTime?                      @default(now()) @db.Timestamp(0)
+  createdBy        String?
+  updatedBy        String?
+  AssetDocument    AssetDocument[]
+  Form             Form?                          @relation(fields: [formTemplateId], references: [id], onUpdate: NoAction, map: "document_types_ibfk_1")
+
+  @@index([code, isActive], map: "idx_document_types_code_active")
+  @@index([formTemplateId], map: "idx_document_types_form")
+  @@index([currentSequence], map: "idx_document_types_sequence")
+  @@map("document_types")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model FieldDataSource {
+  id            Int                           @id @default(autoincrement())
+  table_name    String                        @db.VarChar(100)
+  field_name    String                        @db.VarChar(100)
+  display_name  String                        @db.VarChar(255)
+  field_type    field_data_sources_field_type
+  relationships Json?
+  is_active     Boolean?                      @default(true)
+  created_at    DateTime?                     @default(now()) @db.Timestamp(0)
+  updated_at    DateTime?                     @default(now()) @db.Timestamp(0)
+
+  @@unique([table_name, field_name], map: "unique_table_field")
+  @@index([display_name], map: "idx_display_name")
+  @@index([field_name], map: "idx_field_name")
+  @@index([is_active], map: "idx_is_active")
+  @@index([table_name], map: "idx_table_name")
+  @@map("field_data_sources")
+}
+
+model FieldNumberingSequence {
+  id            Int       @id @default(autoincrement())
+  fieldId       Int
+  companyId     Int?
+  currentYear   Int
+  currentMonth  Int?
+  currentNumber Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime
+  Company       Company?  @relation(fields: [companyId], references: [id])
+  FormField     FormField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([fieldId, companyId, currentYear, currentMonth])
+  @@index([companyId], map: "field_numbering_sequences_companyId_fkey")
+  @@index([fieldId, companyId, currentYear])
+  @@map("field_numbering_sequences")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model FormField {
+  id                     Int                           @id @default(autoincrement())
+  formId                 Int
+  fieldKey               String
+  fieldLabel             String
+  fieldType              form_fields_fieldType
+  data_source_type       form_fields_data_source_type? @default(static)
+  data_source_config     Json?
+  dependency_rules       Json?
+  isRequired             Boolean                       @default(false)
+  isReadonly             Boolean                       @default(false)
+  isHidden               Boolean                       @default(false)
+  defaultValue           String?                       @db.Text
+  placeholder            String?
+  helpText               String?                       @db.Text
+  options                Json?
+  validationRules        Json?
+  autoFill               Boolean                       @default(false)
+  autoFillSource         String?
+  autoFillMode           form_fields_autoFillMode      @default(manual)
+  hasAutoNumbering       Boolean                       @default(false)
+  numberingConfig        Json?
+  section                String                        @default("general")
+  displayOrder           Int
+  columnPosition         form_fields_columnPosition    @default(full)
+  conditionalLogic       Json?
+  createdAt              DateTime                      @default(now())
+  updatedAt              DateTime
+  FieldNumberingSequence FieldNumberingSequence[]
+  Form                   Form                          @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, fieldKey])
+  @@index([formId, fieldKey])
+  @@index([formId, isRequired])
+  @@index([formId, section, displayOrder])
+  @@index([data_source_type], map: "idx_data_source_type")
+  @@map("form_fields")
+}
+
+model FormSubmission {
+  id             Int      @id @default(autoincrement())
+  formId         Int
+  entityType     String
+  entityId       Int
+  submittedBy    String
+  submissionData Json
+  submittedAt    DateTime @default(now())
+  Form           Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  User           User     @relation(fields: [submittedBy], references: [documentNumber])
+
+  @@index([formId, entityType, entityId])
+  @@index([submittedAt(sort: Desc), formId])
+  @@index([submittedBy, submittedAt(sort: Desc)])
+  @@map("form_submissions")
+}
+
+model Form {
+  id                           Int                     @id @default(autoincrement())
+  name                         String
+  description                  String?                 @db.Text
+  moduleType                   forms_moduleType
+  status                       forms_status            @default(draft)
+  isTemplate                   Boolean                 @default(false)
+  assetCategoryId              Int?
+  assetGroupId                 Int?
+  version                      Int                     @default(1)
+  clonedFrom                   Int?
+  usageCount                   Int                     @default(0)
+  companyId                    Int
+  createdBy                    String
+  createdAt                    DateTime                @default(now())
+  updatedAt                    DateTime
+  deletedAt                    DateTime?
+  deletedBy                    String?
+  stepsConfig                  Json?
+  stylesConfig                 Json?
+  submissionConfig             Json?
+  securityConfig               Json?
+  AssetDocument                AssetDocument[]
+  AssetType                    AssetType?
+  Asset                        Asset[]
+  CompanyDocumentConfig        CompanyDocumentConfig[]
+  DocumentType                 DocumentType[]
+  FormField                    FormField[]
+  FormSubmission               FormSubmission[]
+  AssetCategory                AssetCategory?          @relation(fields: [assetCategoryId], references: [id])
+  AssetGroup                   AssetGroup?             @relation(fields: [assetGroupId], references: [id])
+  Form                         Form?                   @relation("formsToforms", fields: [clonedFrom], references: [id])
+  other_forms                  Form[]                  @relation("formsToforms")
+  Company                      Company                 @relation(fields: [companyId], references: [id])
+  users_forms_createdByTousers User                    @relation("forms_createdByTousers", fields: [createdBy], references: [documentNumber])
+  users_forms_deletedByTousers User?                   @relation("forms_deletedByTousers", fields: [deletedBy], references: [documentNumber])
+
+  @@index([assetCategoryId, assetGroupId])
+  @@index([assetGroupId], map: "forms_assetGroupId_fkey")
+  @@index([clonedFrom])
+  @@index([companyId, status, deletedAt])
+  @@index([createdBy, createdAt(sort: Desc)])
+  @@index([deletedBy], map: "forms_deletedBy_fkey")
+  @@index([moduleType, status])
+  @@map("forms")
+}
+
+model Headquarters {
+  id                                                               Int                 @id @default(autoincrement())
+  name                                                             String
+  companyId                                                        Int
+  country                                                          String
+  state                                                            String
+  city                                                             String
+  addressLine1                                                     String?             @db.Text
+  addressLine2                                                     String?             @db.Text
+  email                                                            String?
+  commentary                                                       String?             @db.Text
+  status                                                           headquarters_status @default(ACTIVE)
+  createdAt                                                        DateTime            @default(now())
+  updatedAt                                                        DateTime
+  createdBy                                                        String?
+  updatedBy                                                        String?
+  phone                                                            String?
+  AssetAssignment                                                  AssetAssignment[]
+  asset_documents_asset_documents_fromHeadquartersIdToheadquarters AssetDocument[]     @relation("asset_documents_fromHeadquartersIdToheadquarters")
+  asset_documents_asset_documents_toHeadquartersIdToheadquarters   AssetDocument[]     @relation("asset_documents_toHeadquartersIdToheadquarters")
+  asset_transfers_asset_transfers_fromHeadquartersIdToheadquarters AssetTransfer[]     @relation("asset_transfers_fromHeadquartersIdToheadquarters")
+  asset_transfers_asset_transfers_toHeadquartersIdToheadquarters   AssetTransfer[]     @relation("asset_transfers_toHeadquartersIdToheadquarters")
+  Asset                                                            Asset[]
+  Company                                                          Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  Rack                                                             Rack[]
+  User                                                             User[]
+
+  @@unique([name, companyId])
+  @@index([companyId], map: "headquarters_companyId_fkey")
+  @@map("headquarters")
+}
+
+model IspProvider {
+  id            Int                  @id @default(autoincrement())
+  name          String               @unique
+  contact       String?
+  email         String?
+  phone         String?
+  notes         String?              @db.Text
+  status        isp_providers_status @default(ACTIVE)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime
+  AssetTransfer AssetTransfer[]
+
+  @@map("isp_providers")
+}
+
+model JobTitle {
+  id         Int               @id @default(autoincrement())
+  name       String
+  processId  Int
+  companyId  Int
+  commentary String?           @db.Text
+  status     job_titles_status @default(ACTIVE)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime
+  createdBy  String?
+  updatedBy  String?
+  Company    Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  Process    Process           @relation(fields: [processId], references: [id], onDelete: Cascade)
+  User       User[]
+
+  @@unique([name, processId])
+  @@index([companyId], map: "job_titles_companyId_fkey")
+  @@index([processId], map: "job_titles_processId_fkey")
+  @@map("job_titles")
+}
+
+model LoginLog {
+  id            String   @id
+  userId        String
+  ipAddress     String
+  userAgent     String?
+  success       Boolean
+  failureReason String?
+  timestamp     DateTime @default(now())
+  User          User     @relation(fields: [userId], references: [documentNumber], onDelete: Cascade)
+
+  @@index([timestamp])
+  @@index([userId])
+  @@map("login_logs")
+}
+
+model ManufacturerCategory {
+  id                Int               @id @default(autoincrement())
+  manufacturerId    Int
+  categoryId        Int
+  createdAt         DateTime          @default(now())
+  createdBy         String?
+  AssetCategory     AssetCategory     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  AssetManufacturer AssetManufacturer @relation(fields: [manufacturerId], references: [id], onDelete: Cascade)
+
+  @@unique([manufacturerId, categoryId])
+  @@index([categoryId], map: "manufacturer_categories_categoryId_fkey")
+  @@map("manufacturer_categories")
+}
+
+model PasswordHistory {
+  id        String   @id
+  userId    String
+  password  String
+  createdAt DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [documentNumber], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([userId])
+  @@map("password_history")
+}
+
+model Process {
+  id         Int              @id @default(autoincrement())
+  name       String
+  companyId  Int
+  commentary String?          @db.Text
+  status     processes_status @default(ACTIVE)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime
+  createdBy  String?
+  updatedBy  String?
+  Asset      Asset[]
+  JobTitle   JobTitle[]
+  Company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  User       User[]
+
+  @@unique([name, companyId])
+  @@index([companyId], map: "processes_companyId_fkey")
+  @@map("processes")
+}
+
+model RackAssignment {
+  id          Int      @id @default(autoincrement())
+  rackId      Int
+  assetId     Int
+  startU      Int
+  heightU     Int
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  createdById String?
+  updatedById String?
+  Asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  Rack        Rack     @relation(fields: [rackId], references: [id], onDelete: Cascade)
+
+  @@unique([rackId, startU])
+  @@index([assetId])
+  @@map("rack_assignments")
+}
+
+model Rack {
+  id             Int              @id @default(autoincrement())
+  name           String
+  companyId      Int
+  headquartersId Int
+  units          Int
+  location       String?
+  notes          String?          @db.Text
+  status         racks_status     @default(ACTIVE)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime
+  createdById    String?
+  updatedById    String?
+  RackAssignment RackAssignment[]
+  Company        Company          @relation(fields: [companyId], references: [id])
+  Headquarters   Headquarters     @relation(fields: [headquartersId], references: [id])
+
+  @@unique([name, headquartersId])
+  @@index([companyId, headquartersId])
+  @@index([headquartersId], map: "racks_headquartersId_fkey")
+  @@map("racks")
+}
+
+model RefreshToken {
+  id        String   @id
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [documentNumber], onDelete: Cascade)
+
+  @@index([userId], map: "refresh_tokens_userId_fkey")
+  @@map("refresh_tokens")
+}
+
+model SoftwareLicense {
+  id                  Int                      @id @default(autoincrement())
+  vendor              String
+  productName         String
+  sku                 String?
+  licenseKeyEncrypted String
+  seats               Int?                     @default(1)
+  expiryDate          DateTime?
+  type                software_licenses_type
+  status              software_licenses_status @default(ACTIVE)
+  companyId           Int
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime
+  AssetLicense        AssetLicense[]
+  Company             Company                  @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, status])
+  @@map("software_licenses")
+}
+
+model Supplier {
+  id                               Int                        @id @default(autoincrement())
+  name                             String
+  city                             String
+  state                            String
+  country                          String
+  description                      String?                    @db.Text
+  address                          String?                    @db.Text
+  phone                            String?
+  email                            String?
+  contactName                      String?
+  contactEmail                     String?
+  contactPhone                     String?
+  taxDocumentType                  suppliers_taxDocumentType?
+  taxDocumentNumber                String?
+  status                           suppliers_status           @default(ACTIVE)
+  companyId                        Int
+  createdAt                        DateTime                   @default(now())
+  updatedAt                        DateTime
+  createdBy                        String?
+  updatedBy                        String?
+  Asset                            Asset[]
+  Company                          Company                    @relation(fields: [companyId], references: [id])
+  users_suppliers_createdByTousers User?                      @relation("suppliers_createdByTousers", fields: [createdBy], references: [documentNumber])
+  users_suppliers_updatedByTousers User?                      @relation("suppliers_updatedByTousers", fields: [updatedBy], references: [documentNumber])
+
+  @@unique([country, taxDocumentType, taxDocumentNumber])
+  @@index([companyId])
+  @@index([createdBy], map: "suppliers_createdBy_fkey")
+  @@index([name])
+  @@index([status])
+  @@index([updatedBy], map: "suppliers_updatedBy_fkey")
+  @@map("suppliers")
+}
+
+model UserGroupMember {
+  id          Int       @id @default(autoincrement())
+  userId      String
+  userGroupId Int
+  createdAt   DateTime  @default(now())
+  createdBy   String?
+  UserGroup   UserGroup @relation(fields: [userGroupId], references: [id], onDelete: Cascade)
+  User        User      @relation(fields: [userId], references: [documentNumber], onDelete: Cascade)
+
+  @@unique([userId, userGroupId])
+  @@index([userGroupId], map: "user_group_members_userGroupId_fkey")
+  @@map("user_group_members")
+}
+
+model UserGroup {
+  id              Int                @id @default(autoincrement())
+  name            String             @unique
+  description     String?            @db.Text
+  status          user_groups_status @default(ACTIVE)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime
+  createdBy       String?
+  updatedBy       String?
+  UserGroupMember UserGroupMember[]
+  User            User[]
+
+  @@map("user_groups")
+}
+
+model User {
+  documentNumber                                     String               @id
+  documentType                                       users_documentType
+  username                                           String               @unique
+  email                                              String               @unique
+  contactEmail                                       String?
+  password                                           String
+  firstName                                          String
+  lastName                                           String
+  phone                                              String?
+  addressLine1                                       String?              @db.Text
+  addressLine2                                       String?              @db.Text
+  residenceCountry                                   String?
+  residenceState                                     String?
+  residenceCity                                      String?
+  commentary                                         String?              @db.Text
+  userGroupId                                        Int?
+  role                                               users_role           @default(USER)
+  status                                             users_status         @default(ACTIVE)
+  lastLogin                                          DateTime?
+  loginAttempts                                      Int                  @default(0)
+  lockedUntil                                        DateTime?
+  resetToken                                         String?
+  resetTokenExpiry                                   DateTime?
+  companyId                                          Int?
+  headquartersId                                     Int?
+  processId                                          Int?
+  jobTitleId                                         Int?
+  emailVerified                                      Boolean              @default(false)
+  emailVerificationToken                             String?              @unique
+  passwordResetToken                                 String?              @unique
+  passwordResetExpires                               DateTime?
+  twoFactorEnabled                                   Boolean              @default(false)
+  twoFactorSecret                                    String?
+  profilePicture                                     String?
+  isDeletionProtected                                Boolean              @default(false)
+  createdAt                                          DateTime             @default(now())
+  updatedAt                                          DateTime
+  createdBy                                          String?
+  updatedBy                                          String?
+  AssetAssignment                                    AssetAssignment[]
+  asset_documents_asset_documents_deliveredByTousers AssetDocument[]      @relation("asset_documents_deliveredByTousers")
+  asset_documents_asset_documents_fromUserIdTousers  AssetDocument[]      @relation("asset_documents_fromUserIdTousers")
+  asset_documents_asset_documents_preparedByTousers  AssetDocument[]      @relation("asset_documents_preparedByTousers")
+  asset_documents_asset_documents_receivedByTousers  AssetDocument[]      @relation("asset_documents_receivedByTousers")
+  asset_documents_asset_documents_toUserIdTousers    AssetDocument[]      @relation("asset_documents_toUserIdTousers")
+  AssetLicense                                       AssetLicense[]
+  AssetStatusHistory                                 AssetStatusHistory[]
+  AssetChangeHistory                                 AssetChangeHistory[] @relation("AssetChangeHistory")
+  assets_assets_assignedUserIdTousers                Asset[]              @relation("assets_assignedUserIdTousers")
+  assets_assets_createdByIdTousers                   Asset[]              @relation("assets_createdByIdTousers")
+  assets_assets_updatedByIdTousers                   Asset[]              @relation("assets_updatedByIdTousers")
+  assets_assets_deletedByTousers                     Asset[]              @relation("assets_deletedByTousers")
+  assets_assets_restoredByTousers                    Asset[]              @relation("assets_restoredByTousers")
+  FormSubmission                                     FormSubmission[]
+  forms_forms_createdByTousers                       Form[]               @relation("forms_createdByTousers")
+  forms_forms_deletedByTousers                       Form[]               @relation("forms_deletedByTousers")
+  LoginLog                                           LoginLog[]
+  PasswordHistory                                    PasswordHistory[]
+  RefreshToken                                       RefreshToken[]
+  suppliers_suppliers_createdByTousers               Supplier[]           @relation("suppliers_createdByTousers")
+  suppliers_suppliers_updatedByTousers               Supplier[]           @relation("suppliers_updatedByTousers")
+  UserGroupMember                                    UserGroupMember[]
+  Company                                            Company?             @relation(fields: [companyId], references: [id])
+  User                                               User?                @relation("usersTousers", fields: [createdBy], references: [documentNumber])
+  other_users                                        User[]               @relation("usersTousers")
+  Headquarters                                       Headquarters?        @relation(fields: [headquartersId], references: [id])
+  JobTitle                                           JobTitle?            @relation(fields: [jobTitleId], references: [id])
+  Process                                            Process?             @relation(fields: [processId], references: [id])
+  UserGroup                                          UserGroup?           @relation(fields: [userGroupId], references: [id])
+
+  @@index([companyId], map: "users_companyId_fkey")
+  @@index([createdBy], map: "users_createdBy_fkey")
+  @@index([email])
+  @@index([headquartersId], map: "users_headquartersId_fkey")
+  @@index([jobTitleId], map: "users_jobTitleId_fkey")
+  @@index([processId], map: "users_processId_fkey")
+  @@index([status])
+  @@index([userGroupId], map: "users_userGroupId_fkey")
+  @@index([username])
+  @@map("users")
+}
+
+enum custom_field_bindings_scope {
+  CATEGORY
+  GROUP
+  TYPE
+  MODEL
+  MANUFACTURER
+  ASSET
+}
+
+enum document_types_code {
+  ASSIGNMENT
+  TRANSFER
+  DECOMMISSION
+  RETURN
+  LOAN
+  MAINTENANCE
+}
+
+enum users_documentType {
   CEDULA
   TARJETA_IDENTIDAD
   CEDULA_EXTRANJERIA
@@ -28,441 +1302,374 @@ enum DocumentType {
   PASSPORT
 }
 
-enum AssetStatus {
+enum asset_assignments_assignmentType {
+  USER
+  COMPANY
+  HEADQUARTERS
+}
+
+enum asset_custom_schemas_scope {
+  CATEGORY
+  GROUP
+  TYPE
+}
+
+enum asset_model_documents_docType {
+  MANUAL
+  DATASHEET
+  WARRANTY
+  OTHER
+}
+
+enum asset_status_history_previousStatus {
   ACTIVE
   INACTIVE
   MAINTENANCE
   RETIRED
 }
 
-enum AssetCondition {
+enum asset_transfers_transferType {
+  TRANSFER
+  LOAN
+}
+
+enum companies_taxDocumentType {
+  NIT
+  EIN
+  RFC
+  RUC
+  RIF
+  BN
+  CIF
+  CUIT
+}
+
+enum company_document_configs_document_type_code {
+  ASSIGNMENT
+  TRANSFER
+  DECOMMISSION
+  RETURN
+  LOAN
+  MAINTENANCE
+}
+
+enum asset_documents_status {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  EXECUTED
+  CANCELLED
+  EXPIRED
+}
+
+enum asset_groups_status {
+  ACTIVE
+  INACTIVE
+}
+
+enum asset_images_imageType {
+  PHOTO
+  DIAGRAM
+  SCHEMATIC
+  OTHER
+}
+
+enum asset_model_images_imageType {
+  PHOTO
+  DIAGRAM
+  SCHEMATIC
+  OTHER
+}
+
+enum asset_status_history_newStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  RETIRED
+}
+
+enum asset_types_status {
+  ACTIVE
+  INACTIVE
+  DEPRECATED
+}
+
+enum custom_field_defs_type {
+  TEXT
+  TEXTAREA
+  NUMBER
+  DECIMAL
+  CAPACITY
+  SELECT
+  MULTISELECT
+  CHECKBOX
+  DATE
+  DATETIME
+  URL
+  EMAIL
+  PHONE
+  COLOR
+}
+
+enum document_assets_inclusionType {
+  PRIMARY
+  CONNECTED
+  MANUAL
+}
+
+enum forms_moduleType {
+  Asset
+  tickets
+  crm
+  hr
+  sales
+  custom
+}
+
+enum user_groups_status {
+  ACTIVE
+  INACTIVE
+}
+
+enum asset_categories_status {
+  ACTIVE
+  INACTIVE
+}
+
+enum asset_components_connectionType {
+  COMPONENT
+  PERIPHERAL
+  ACCESSORY
+  FURNITURE_SET
+  RACK_MOUNT
+  VEHICLE_TOOL
+}
+
+enum asset_manufacturers_status {
+  ACTIVE
+  INACTIVE
+}
+
+enum asset_models_status {
+  ACTIVE
+  INACTIVE
+}
+
+enum assets_status {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  RETIRED
+}
+
+enum document_assets_assetCondition {
   NEW
   GOOD
   FAIR
   POOR
 }
 
-model Company {
-  id          Int           @id @default(autoincrement())
-  name        String        @unique
-  nit         String        @unique // NIT as primary business identifier
-  description String?       @db.Text
-  email       String?
-  phone       String?
-  address     String?       @db.Text
-  cityId      Int?
-  stateId     Int?
-  countryId   Int?
-  website     String?
-  logo        String?
-  status      Status        @default(ACTIVE)
-  code        String        @unique
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  createdBy   String?
-  updatedBy   String?
-  
-  // Geographic relationships
-  city         City?         @relation(fields: [cityId], references: [id])
-  state        State?        @relation(fields: [stateId], references: [id])
-  country      Country?      @relation(fields: [countryId], references: [id])
-  
-  headquarters      Headquarters[]
-  users            User[]
-  assets           Asset[]
-  companyProcesses CompanyProcess[]
-  companyJobTitles CompanyJobTitle[]
-  
-  @@map("companies")
+enum field_data_sources_field_type {
+  string
+  number
+  date
+  boolean
+  json
 }
 
-model Headquarters {
-  id          Int       @id @default(autoincrement())
-  name        String
-  description String?   @db.Text
-  address     String?   @db.Text
-  cityId      Int?
-  stateId     Int?
-  countryId   Int?
-  phone       String?
-  email       String?
-  status      Status    @default(ACTIVE)
-  code        String    @unique
-  companyId   Int
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  createdBy   String?
-  updatedBy   String?
-  
-  // Geographic relationships
-  city         City?     @relation(fields: [cityId], references: [id])
-  state        State?    @relation(fields: [stateId], references: [id])
-  country      Country?  @relation(fields: [countryId], references: [id])
-  
-  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  users       User[]
-  assets      Asset[]
-  
-  @@unique([name, companyId]) // Same headquarter name can exist in different companies
-  @@map("headquarters")
+enum form_fields_fieldType {
+  text
+  textarea
+  number
+  email
+  phone
+  date
+  datetime
+  checkbox
+  radio
+  select
+  multiselect
+  file
+  user_select
+  company_select
+  location_select
+  department_select
+  asset_select
+  process_select
+  job_title_select
 }
 
-model User {
-  documentNumber        String       @id // Document number as primary key (cedula)
-  documentType          DocumentType
-  username              String       @unique // Unique username for login
-  email                 String       @unique // Unique email for login
-  contactEmail          String?
-  password              String
-  firstName             String
-  lastName              String
-  phone                 String?
-  // Address and residence fields (flat strings, single association semantics)
-  addressLine1          String?      @db.Text
-  addressLine2          String?      @db.Text
-  residenceCountry      String?      // ISO-2 code (e.g., CO, US)
-  residenceState        String?      // Region/state code or name (project-defined)
-  residenceCity         String?      // City name
-  commentary            String?      @db.Text
-  userGroupId           Int?
-  role                  UserRole     @default(USER)
-  status                Status       @default(ACTIVE)
-  lastLogin             DateTime?
-  loginAttempts         Int          @default(0)
-  lockedUntil           DateTime?
-  resetToken            String?
-  resetTokenExpiry      DateTime?
-  companyId             Int?         // User belongs to one company only
-  headquartersId        Int?         // User assigned to headquarters
-  processId             Int?         // Process is global to company
-  jobTitleId            Int?         // JobTitle belongs to user
-  emailVerified         Boolean      @default(false)
-  emailVerificationToken String?     @unique
-  passwordResetToken     String?     @unique
-  passwordResetExpires   DateTime?
-  twoFactorEnabled       Boolean      @default(false)
-  twoFactorSecret        String?
-  profilePicture         String?
-  isDeletionProtected    Boolean      @default(false) // Prevents user from being deleted/disabled
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
-  createdBy             String?      // Document number of creator
-  updatedBy             String?      // Document number of updater
-  
-  company               Company?     @relation(fields: [companyId], references: [id])
-  headquarters          Headquarters? @relation(fields: [headquartersId], references: [id])
-  process               Process?     @relation(fields: [processId], references: [id])
-  jobTitle              JobTitle?    @relation(fields: [jobTitleId], references: [id])
-  userGroup             UserGroup?   @relation(fields: [userGroupId], references: [id])
-  creator               User?        @relation("UserCreatedBy", fields: [createdBy], references: [documentNumber])
-  createdUsers          User[]       @relation("UserCreatedBy")
-  refreshTokens         RefreshToken[]
-  loginLogs             LoginLog[]
-  userGroupMembers      UserGroupMember[]
-  assignedAssets        Asset[]      @relation("AssetAssignedTo")
-  createdAssets         Asset[]      @relation("AssetCreatedBy")
-  updatedAssets         Asset[]      @relation("AssetUpdatedBy")
-  
-  @@index([email])
-  @@index([username])
-  @@index([status])
-  @@map("users")
+enum forms_status {
+  active
+  draft
+  archived
 }
 
-model RefreshToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  userId    String   // References User.documentNumber
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  
-  user      User     @relation(fields: [userId], references: [documentNumber], onDelete: Cascade)
-  
-  @@map("refresh_tokens")
+enum processes_status {
+  ACTIVE
+  INACTIVE
 }
 
-model LoginLog {
-  id          String   @id @default(cuid())
-  userId      String   // References User.documentNumber
-  ipAddress   String
-  userAgent   String?
-  success     Boolean
-  failureReason String?
-  timestamp   DateTime @default(now())
-  
-  user        User     @relation(fields: [userId], references: [documentNumber], onDelete: Cascade)
-  
-  @@index([userId])
-  @@index([timestamp])
-  @@map("login_logs")
+enum asset_licenses_status {
+  ACTIVE
+  INACTIVE
+  DEPRECATED
 }
 
-model Process {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
-  description String?   @db.Text
-  status      Status    @default(ACTIVE)
-  code        String    @unique
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  createdBy   String?
-  updatedBy   String?
-  
-  users            User[]
-  jobTitles        JobTitle[]
-  companyProcesses CompanyProcess[]
-  
-  @@map("processes")
+enum assets_condition {
+  NEW
+  GOOD
+  FAIR
+  POOR
 }
 
-model JobTitle {
-  id               Int       @id @default(autoincrement())
-  name             String    @unique
-  description      String?   @db.Text
-  status           Status    @default(ACTIVE)
-  code             String    @unique
-  processId        Int
-  processManager   Boolean   @default(false)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  createdBy        String?
-  updatedBy        String?
-  
-  process          Process   @relation(fields: [processId], references: [id], onDelete: Cascade)
-  users            User[]
-  companyJobTitles CompanyJobTitle[]
-  
-  @@map("job_titles")
+enum document_assets_assetStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  RETIRED
 }
 
-// User Groups System
-model UserGroup {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
-  description String?   @db.Text
-  status      Status    @default(ACTIVE)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  createdBy   String?
-  updatedBy   String?
-  
-  members     UserGroupMember[]
-  users       User[]
-  
-  @@map("user_groups")
+enum form_fields_data_source_type {
+  static
+  database
+  computed
+  relationship
 }
 
-model UserGroupMember {
-  id          Int       @id @default(autoincrement())
-  userId      String    // References User.documentNumber
-  userGroupId Int
-  createdAt   DateTime  @default(now())
-  createdBy   String?   // References User.documentNumber
-  
-  user        User      @relation(fields: [userId], references: [documentNumber], onDelete: Cascade)
-  userGroup   UserGroup @relation(fields: [userGroupId], references: [id], onDelete: Cascade)
-  
-  @@unique([userId, userGroupId])
-  @@map("user_group_members")
+enum job_titles_status {
+  ACTIVE
+  INACTIVE
 }
 
-// Asset Management System
-model AssetCategory {
-  id           Int       @id @default(autoincrement())
-  name         String    @unique
-  label        String    @unique
-  description  String?   @db.Text
-  status       Status    @default(ACTIVE)
-  isPersistent Boolean   @default(false)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  createdBy    String?
-  updatedBy    String?
-  
-  assets       Asset[]
-  assetGroups  AssetGroup[]
-  
-  @@map("asset_categories")
+enum company_document_configs_reset_frequency {
+  yearly
+  monthly
+  never
 }
 
-model AssetGroup {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
-  description String?   @db.Text
-  status      Status    @default(ACTIVE)
-  isSystem    Boolean   @default(false)
-  categoryId  Int
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  createdBy   String?
-  updatedBy   String?
-  
-  category    AssetCategory @relation(fields: [categoryId], references: [id])
-  assets      Asset[]
-  
-  @@map("asset_groups")
+enum custom_field_defs_status {
+  ACTIVE
+  INACTIVE
+  DEPRECATED
 }
 
-model AssetManufacturer {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
-  description String?   @db.Text
-  website     String?
-  status      Status    @default(ACTIVE)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  createdBy   String?
-  updatedBy   String?
-  
-  models      AssetModel[]
-  
-  @@map("asset_manufacturers")
+enum isp_providers_status {
+  ACTIVE
+  INACTIVE
+  DEPRECATED
 }
 
-model AssetModel {
-  id             Int       @id @default(autoincrement())
-  name           String
-  description    String?   @db.Text
-  manufacturerId Int
-  status         Status    @default(ACTIVE)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  createdBy      String?
-  updatedBy      String?
-  
-  manufacturer   AssetManufacturer @relation(fields: [manufacturerId], references: [id])
-  assets         Asset[]
-  
-  @@unique([name, manufacturerId])
-  @@map("asset_models")
+enum asset_custom_schemas_status {
+  ACTIVE
+  INACTIVE
+  DEPRECATED
 }
 
-model Asset {
-  id                  Int           @id @default(autoincrement())
-  name                String
-  description         String?       @db.Text
-  serialNumber        String?
-  status              AssetStatus   @default(ACTIVE)
-  condition           AssetCondition @default(NEW)
-  purchaseDate        DateTime?
-  warrantyExpiration  DateTime?
-  notes               String?       @db.Text
-  categoryId          Int
-  modelId             Int
-  groupId             Int
-  companyId           Int
-  headquartersId      Int
-  assignedUserId      String?       // References User.documentNumber
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  createdById         String        // References User.documentNumber
-  updatedById         String?       // References User.documentNumber
-  
-  category            AssetCategory @relation(fields: [categoryId], references: [id])
-  model               AssetModel    @relation(fields: [modelId], references: [id])
-  group               AssetGroup    @relation(fields: [groupId], references: [id])
-  company             Company       @relation(fields: [companyId], references: [id])
-  headquarters        Headquarters  @relation(fields: [headquartersId], references: [id])
-  assignedUser        User?         @relation("AssetAssignedTo", fields: [assignedUserId], references: [documentNumber])
-  createdBy           User          @relation("AssetCreatedBy", fields: [createdById], references: [documentNumber])
-  updatedBy           User?         @relation("AssetUpdatedBy", fields: [updatedById], references: [documentNumber])
-  
-  @@map("assets")
+enum document_types_resetFrequency {
+  yearly
+  monthly
+  never
 }
 
-// Many-to-Many Relationship Tables
-model CompanyProcess {
-  id        Int      @id @default(autoincrement())
-  companyId Int
-  processId Int
-  createdAt DateTime @default(now())
-  createdBy String?
-  
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  process   Process  @relation(fields: [processId], references: [id], onDelete: Cascade)
-  
-  @@unique([companyId, processId])
-  @@map("company_processes")
+enum racks_status {
+  ACTIVE
+  INACTIVE
+  DEPRECATED
 }
 
-model CompanyJobTitle {
-  id         Int      @id @default(autoincrement())
-  companyId  Int
-  jobTitleId Int
-  createdAt  DateTime @default(now())
-  createdBy  String?
-  
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  jobTitle   JobTitle @relation(fields: [jobTitleId], references: [id], onDelete: Cascade)
-  
-  @@unique([companyId, jobTitleId])
-  @@map("company_job_titles")
+enum software_licenses_type {
+  PERPETUAL
+  SUBSCRIPTION
+  OEM
 }
 
-// Geography Models for Colombia and USA
-model Country {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
-  code        String    @unique // CO, US
-  status      Status    @default(ACTIVE)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  states      State[]
-  companies   Company[]
-  headquarters Headquarters[]
-  
-  @@map("countries")
+enum software_licenses_status {
+  ACTIVE
+  INACTIVE
+  DEPRECATED
 }
 
-model State {
-  id          Int       @id @default(autoincrement())
-  name        String
-  code        String    // ANT, CAL, NY, CA, etc.
-  countryId   Int
-  status      Status    @default(ACTIVE)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  country     Country   @relation(fields: [countryId], references: [id])
-  cities      City[]
-  companies   Company[]
-  headquarters Headquarters[]
-  
-  @@unique([name, countryId])
-  @@map("states")
+enum asset_assignments_status {
+  ACTIVE
+  INACTIVE
+  DEPRECATED
 }
 
-model City {
-  id          Int       @id @default(autoincrement())
-  name        String
-  stateId     Int
-  status      Status    @default(ACTIVE)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  state       State     @relation(fields: [stateId], references: [id])
-  companies   Company[]
-  headquarters Headquarters[]
-  
-  @@unique([name, stateId])
-  @@map("cities")
+enum custom_field_bindings_status {
+  ACTIVE
+  INACTIVE
+  DEPRECATED
 }
 
-model AuditLog {
-  id          String   @id @default(cuid())
-  userId      String?
-  action      String
-  entityType  String
-  entityId    String?
-  oldValues   Json?
-  newValues   Json?
-  ipAddress   String?
-  userAgent   String?
-  timestamp   DateTime @default(now())
-  
-  @@index([userId])
-  @@index([timestamp])
-  @@index([entityType])
-  @@map("audit_logs")
+enum asset_components_status {
+  ACTIVE
+  INACTIVE
+  DEPRECATED
+}
+
+enum headquarters_status {
+  ACTIVE
+  INACTIVE
+}
+
+enum asset_transfers_status {
+  DRAFT
+  ACTIVE
+  RETURNED
+  CANCELLED
+}
+
+enum suppliers_taxDocumentType {
+  NIT
+  RIF
+  CUIT
+  CNPJ
+  RFC
+  EIN
+  CIF
+}
+
+enum companies_status {
+  ACTIVE
+  INACTIVE
+}
+
+enum suppliers_status {
+  ACTIVE
+  INACTIVE
+}
+
+enum asset_documents_docType {
+  INVOICE
+  CONTRACT
+  WARRANTY
+  DELIVERY
+  TRANSFER
+  PHOTO
+  OTHER
+}
+
+enum users_role {
+  SUPER_ADMIN
+  ADMIN
+  SUPERVISOR
+  USER
+}
+
+enum users_status {
+  ACTIVE
+  INACTIVE
+}
+
+enum form_fields_autoFillMode {
+  auto
+  manual
+  auto_with_override
+}
+
+enum form_fields_columnPosition {
+  full
+  left
+  right
 }
