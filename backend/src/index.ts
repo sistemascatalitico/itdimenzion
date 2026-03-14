@@ -3,8 +3,8 @@ import cors from 'cors';
 import morgan from 'morgan';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
-import session from 'express-session';
 import dotenv from 'dotenv';
+import path from 'path';
 
 import { connectDatabase, disconnectDatabase } from './config/database';
 import { securityConfig } from './config/security';
@@ -15,140 +15,115 @@ import {
   detectSuspiciousActivity,
 } from './middleware/security';
 
-// Load environment variables
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 4701;
+const isProduction = process.env.NODE_ENV === 'production';
 
-// Security middleware - Temporarily simplified for debugging
-console.log('🔧 Loading middlewares...');
+// --------------- CORS (must be before other middleware) ---------------
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim().replace(/\/+$/, ''))
+  : ['http://localhost:3701', 'http://127.0.0.1:3701'];
 
-// Comment out problematic middlewares temporarily
-// app.use(helmetMiddleware);
-// app.use(rateLimitMiddleware);
-// app.use(detectSuspiciousActivity);
-// app.use(sanitizeInput);
-
-console.log('⚠️ Security middlewares temporarily disabled for debugging');
-
-// CORS configuration - Simplified for debugging
-app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3007'],
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, origin);
+    // Permitir cualquier subdominio de vercel.app en producción (con credentials hay que devolver el origen exacto)
+    if (process.env.NODE_ENV === 'production' && /^https:\/\/[^/]+\.vercel\.app$/.test(origin)) {
+      return cb(null, origin);
+    }
+    cb(null, false);
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Length'],
+  preflightContinue: false,
+  optionsSuccessStatus: 200,
+};
 
-// Body parsing middleware
+app.use(cors(corsOptions));
+
+// --------------- Security Middleware ---------------
+app.use(helmetMiddleware);
+app.use(rateLimitMiddleware);
+app.use(sanitizeInput);
+app.use(detectSuspiciousActivity);
+
+// --------------- Body parsing ---------------
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Cookie and session middleware
 app.use(cookieParser());
-
-// Temporarily comment out session middleware for debugging
-/*
-app.use(
-  session({
-    secret: securityConfig.session.secret,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: securityConfig.session.secure,
-      httpOnly: securityConfig.session.httpOnly,
-      maxAge: securityConfig.session.maxAge,
-      sameSite: securityConfig.session.sameSite,
-    },
-  })
-);
-*/
-
-// Compression middleware
 app.use(compression());
 
-// Logging middleware
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
-} else {
-  app.use(morgan('combined'));
-}
+// --------------- Logging ---------------
+app.use(morgan(isProduction ? 'combined' : 'dev'));
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  console.log('🏥 Health check requested');
-  try {
-    res.status(200).json({
-      status: 'OK',
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development',
-      version: '1.0.0',
-    });
-  } catch (error) {
-    console.error('❌ Health check error:', error);
-    res.status(500).json({ error: 'Health check failed' });
-  }
-});
+// --------------- Static files ---------------
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Simplified login endpoint for testing
-app.post('/api/auth/simple-login', async (req, res) => {
-  console.log('🔐 Simple login requested:', req.body);
-  try {
-    const { email, password } = req.body;
-    
-    if (!email || !password) {
-      return res.status(400).json({
-        error: 'Email and password are required',
-        statusCode: 400
-      });
-    }
-
-    // Test response for now
-    res.json({
-      message: 'Simple login endpoint working',
-      accessToken: 'test-token-12345',
-      user: {
-        email: email,
-        firstName: 'Test',
-        lastName: 'User',
-        role: 'USER'
-      },
-      statusCode: 200
-    });
-  } catch (error) {
-    console.error('❌ Simple login error:', error);
-    res.status(500).json({
-      error: 'Login failed',
-      statusCode: 500,
-      debug: error instanceof Error ? error.message : String(error)
-    });
-  }
-});
-
-// Import routes
-import authRoutes from './routes/auth.routes';
-import enhancedUserRoutes from './routes/enhancedUsers';
-
-// API routes
-const apiPrefix = process.env.API_PREFIX || '/api';
-app.use(`${apiPrefix}/auth`, authRoutes);
-app.use(`${apiPrefix}/users`, enhancedUserRoutes);
-
-// API root endpoint
-app.use(apiPrefix, (req, res) => {
+// --------------- Health check ---------------
+app.get('/health', (_req, res) => {
   res.status(200).json({
-    message: 'ITDimenzion API is running securely',
-    version: '1.0.0',
+    status: 'OK',
     timestamp: new Date().toISOString(),
-    endpoints: {
-      auth: `${apiPrefix}/auth`,
-      users: `${apiPrefix}/users`,
-      health: '/health',
-    },
+    environment: process.env.NODE_ENV || 'development',
+    version: '1.0.0',
+    port: PORT,
   });
 });
 
-// 404 handler
+// --------------- Routes ---------------
+import authRoutes from './routes/auth.routes';
+import enhancedUserRoutes from './routes/enhancedUsers';
+import companyRoutes from './routes/companies';
+import headquartersRoutes from './routes/headquarters';
+import processRoutes from './routes/processes';
+import jobTitleRoutes from './routes/jobTitles';
+import assetsCatalogsRoutes from './routes/assetsCatalogs';
+import assetsRoutes from './routes/assets';
+import assetDocumentsRoutes from './routes/assetDocuments';
+import assetAssignmentsRoutes from './routes/assetAssignments';
+import assetTransfersRoutes from './routes/assetTransfers';
+import assetComponentsRoutes from './routes/assetComponents';
+import assetModelFilesRoutes from './routes/assetModelFiles';
+import assetFilesRoutes from './routes/assetFiles';
+import racksRoutes from './routes/racks';
+import customFieldsRoutes from './routes/customFields';
+import formBuilderRoutes from './routes/formBuilder.routes';
+import suppliersRoutes from './routes/suppliers.routes';
+
+app.use('/api/auth', authRoutes);
+app.use('/api/users', enhancedUserRoutes);
+app.use('/api/companies', companyRoutes);
+app.use('/api/headquarters', headquartersRoutes);
+app.use('/api/processes', processRoutes);
+app.use('/api/job-titles', jobTitleRoutes);
+app.use('/api', assetsCatalogsRoutes);
+app.use('/api', assetsRoutes);
+app.use('/api', assetDocumentsRoutes);
+app.use('/api', assetAssignmentsRoutes);
+app.use('/api', assetTransfersRoutes);
+app.use('/api', assetComponentsRoutes);
+app.use('/api', assetModelFilesRoutes);
+app.use('/api', assetFilesRoutes);
+app.use('/api', racksRoutes);
+app.use('/api', customFieldsRoutes);
+app.use('/api/forms', formBuilderRoutes);
+app.use('/api/suppliers', suppliersRoutes);
+
+// --------------- API root ---------------
+app.get('/api', (_req, res) => {
+  res.status(200).json({
+    message: 'ITDimenzion API is running',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// --------------- 404 handler ---------------
 app.use('*', (req, res) => {
   res.status(404).json({
     error: 'Route not found',
@@ -158,66 +133,51 @@ app.use('*', (req, res) => {
   });
 });
 
-// Global error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('❌ Global error handler:', err);
+// --------------- Global error handler ---------------
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Global error:', err.message);
 
-  // Don't leak error details in production
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  
   res.status(err.status || 500).json({
-    error: isDevelopment ? err.message : 'Internal server error',
+    error: isProduction ? 'Internal server error' : err.message,
     statusCode: err.status || 500,
     timestamp: new Date().toISOString(),
-    ...(isDevelopment && { stack: err.stack }),
+    ...(!isProduction && { stack: err.stack }),
   });
 });
 
-// Graceful shutdown handling
+// --------------- Graceful shutdown ---------------
 const gracefulShutdown = async (signal: string) => {
-  console.log(`\n🔄 Received ${signal}. Starting graceful shutdown...`);
-  
+  console.log(`Received ${signal}. Shutting down...`);
   try {
     await disconnectDatabase();
-    console.log('✅ Graceful shutdown completed');
     process.exit(0);
   } catch (error) {
-    console.error('❌ Error during graceful shutdown:', error);
+    console.error('Error during shutdown:', error);
     process.exit(1);
   }
 };
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-// Unhandled promise rejection handler
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
   process.exit(1);
 });
-
-// Uncaught exception handler
 process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
+  console.error('Uncaught Exception:', error);
   process.exit(1);
 });
 
-// Start server
+// --------------- Start server ---------------
 const startServer = async () => {
   try {
     await connectDatabase();
-    
+
     app.listen(PORT, () => {
-      console.log(`
-🚀 ITDimenzion API Server started successfully!
-📍 URL: http://localhost:${PORT}
-🌍 Environment: ${process.env.NODE_ENV || 'development'}
-🔒 Security: Enhanced with comprehensive protection
-⏰ Started at: ${new Date().toISOString()}
-      `);
+      console.log(`ITDimenzion API running on http://localhost:${PORT} [${process.env.NODE_ENV || 'development'}]`);
     });
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
+    console.error('Failed to start server:', error);
     process.exit(1);
   }
 };

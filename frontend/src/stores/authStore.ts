@@ -197,7 +197,10 @@ export const useAuthStore = create<AuthState>()(
           return { success: true };
           
         } catch (error: any) {
-          const errorMessage = error.response?.data?.error || 'Error en el login';
+          const isNetworkError = !error.response && (error.code === 'ERR_NETWORK' || error.message?.includes('Network'));
+          const errorMessage = isNetworkError
+            ? 'Error de conexión. Verifique que el backend esté ejecutándose (pnpm run dev en /backend).'
+            : (error.response?.data?.error || 'Error en el login');
           set({
             isLoading: false,
             isAuthenticated: false,
