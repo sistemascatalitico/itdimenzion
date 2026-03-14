@@ -77,42 +77,43 @@ app.get('/health', (_req, res) => {
 
 // --------------- Routes ---------------
 import authRoutes from './routes/auth.routes';
-import enhancedUserRoutes from './routes/enhancedUsers';
-import companyRoutes from './routes/companies';
-import headquartersRoutes from './routes/headquarters';
-import processRoutes from './routes/processes';
-import jobTitleRoutes from './routes/jobTitles';
-import assetsCatalogsRoutes from './routes/assetsCatalogs';
-import assetsRoutes from './routes/assets';
-import assetDocumentsRoutes from './routes/assetDocuments';
-import assetAssignmentsRoutes from './routes/assetAssignments';
-import assetTransfersRoutes from './routes/assetTransfers';
-import assetComponentsRoutes from './routes/assetComponents';
-import assetModelFilesRoutes from './routes/assetModelFiles';
-import assetFilesRoutes from './routes/assetFiles';
-import racksRoutes from './routes/racks';
-import customFieldsRoutes from './routes/customFields';
-import formBuilderRoutes from './routes/formBuilder.routes';
-import suppliersRoutes from './routes/suppliers.routes';
+// Rutas que requieren schema nuevo - deshabilitadas hasta alinear schema en repo
+// import enhancedUserRoutes from './routes/enhancedUsers';
+// import companyRoutes from './routes/companies';
+// import headquartersRoutes from './routes/headquarters';
+// import processRoutes from './routes/processes';
+// import jobTitleRoutes from './routes/jobTitles';
+// import assetsCatalogsRoutes from './routes/assetsCatalogs';
+// import assetsRoutes from './routes/assets';
+// import assetDocumentsRoutes from './routes/assetDocuments';
+// import assetAssignmentsRoutes from './routes/assetAssignments';
+// import assetTransfersRoutes from './routes/assetTransfers';
+// import assetComponentsRoutes from './routes/assetComponents';
+// import assetModelFilesRoutes from './routes/assetModelFiles';
+// import assetFilesRoutes from './routes/assetFiles';
+// import racksRoutes from './routes/racks';
+// import customFieldsRoutes from './routes/customFields';
+// import formBuilderRoutes from './routes/formBuilder.routes';
+// import suppliersRoutes from './routes/suppliers.routes';
 
 app.use('/api/auth', authRoutes);
-app.use('/api/users', enhancedUserRoutes);
-app.use('/api/companies', companyRoutes);
-app.use('/api/headquarters', headquartersRoutes);
-app.use('/api/processes', processRoutes);
-app.use('/api/job-titles', jobTitleRoutes);
-app.use('/api', assetsCatalogsRoutes);
-app.use('/api', assetsRoutes);
-app.use('/api', assetDocumentsRoutes);
-app.use('/api', assetAssignmentsRoutes);
-app.use('/api', assetTransfersRoutes);
-app.use('/api', assetComponentsRoutes);
-app.use('/api', assetModelFilesRoutes);
-app.use('/api', assetFilesRoutes);
-app.use('/api', racksRoutes);
-app.use('/api', customFieldsRoutes);
-app.use('/api/forms', formBuilderRoutes);
-app.use('/api/suppliers', suppliersRoutes);
+// app.use('/api/users', enhancedUserRoutes);
+// app.use('/api/companies', companyRoutes);
+// app.use('/api/headquarters', headquartersRoutes);
+// app.use('/api/processes', processRoutes);
+// app.use('/api/job-titles', jobTitleRoutes);
+// app.use('/api', assetsCatalogsRoutes);
+// app.use('/api', assetsRoutes);
+// app.use('/api', assetDocumentsRoutes);
+// app.use('/api', assetAssignmentsRoutes);
+// app.use('/api', assetTransfersRoutes);
+// app.use('/api', assetComponentsRoutes);
+// app.use('/api', assetModelFilesRoutes);
+// app.use('/api', assetFilesRoutes);
+// app.use('/api', racksRoutes);
+// app.use('/api', customFieldsRoutes);
+// app.use('/api/forms', formBuilderRoutes);
+// app.use('/api/suppliers', suppliersRoutes);
 
 // --------------- API root ---------------
 app.get('/api', (_req, res) => {
