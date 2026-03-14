@@ -26,14 +26,14 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim().replace(/\/+$/, ''))
   : ['http://localhost:3701', 'http://127.0.0.1:3701'];
 
+// Cualquier subdominio de vercel.app (producción y previews)
+const isVercelOrigin = (o: string) => /^https:\/\/[^/]+\.vercel\.app$/.test(o);
+
 const corsOptions: cors.CorsOptions = {
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
     if (allowedOrigins.includes(origin)) return cb(null, origin);
-    // Permitir cualquier subdominio de vercel.app en producción (con credentials hay que devolver el origen exacto)
-    if (process.env.NODE_ENV === 'production' && /^https:\/\/[^/]+\.vercel\.app$/.test(origin)) {
-      return cb(null, origin);
-    }
+    if (isVercelOrigin(origin)) return cb(null, origin);
     cb(null, false);
   },
   credentials: true,
@@ -41,7 +41,7 @@ const corsOptions: cors.CorsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Content-Length'],
   preflightContinue: false,
-  optionsSuccessStatus: 200,
+  optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
