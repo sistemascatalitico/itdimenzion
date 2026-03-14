@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
 import { CheckCircle } from '@mui/icons-material';
+import { PRIMARY_GRADIENT } from '../../theme/themeTokens';
 
 interface SuccessMessageProps {
   isVisible: boolean;
@@ -53,7 +54,7 @@ const SuccessMessage: React.FC<SuccessMessageProps> = ({
         left: 0,
         width: '100vw',
         height: '100vh',
-        background: 'linear-gradient(135deg, #FF6347 0%, #FFA07A 100%)',
+        background: PRIMARY_GRADIENT,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

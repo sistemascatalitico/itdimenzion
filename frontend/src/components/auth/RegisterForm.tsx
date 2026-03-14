@@ -24,9 +24,13 @@ import {
   Person,
   Badge,
   AccountCircle,
+  DarkMode as MoonIcon,
+  LightMode as SunIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
+import { useThemeMode } from '../../context/ThemeContext';
+import { PRIMARY } from '../../theme/themeTokens';
 import CompactPhoneInput from '../common/CompactPhoneInput';
 import SecureLocationSelectors from '../common/SecureLocationSelectors';
 import LoadingScreen from '../common/LoadingScreen';
@@ -89,6 +93,7 @@ interface RegisterErrors {
 const RegisterForm: React.FC = () => {
   const navigate = useNavigate();
   const { register } = useAuth();
+  const { isDark, toggleMode } = useThemeMode();
   
   // Multi-step navigation
   const TOTAL_STEPS = 3;
@@ -132,20 +137,20 @@ const RegisterForm: React.FC = () => {
       borderRadius: 1,
       color: '#1f1f1f',
       '&:hover fieldset': {
-        borderColor: '#FF69B4',
+        borderColor: PRIMARY.main,
       },
       '&.Mui-focused fieldset': {
-        borderColor: '#FF69B4',
+        borderColor: PRIMARY.main,
         boxShadow: '0 0 0 2px rgba(255, 105, 180, 0.2)',
       },
     },
     '& .MuiInputLabel-root': {
       '&.Mui-focused': {
-        color: '#FF69B4',
+        color: PRIMARY.main,
       },
     },
     '& .MuiFormHelperText-root.Mui-error': {
-      color: '#FF69B4',
+      color: PRIMARY.main,
       fontWeight: 500,
     }
   };
@@ -352,7 +357,7 @@ const RegisterForm: React.FC = () => {
         sx={{ 
           mb: 3, 
           textAlign: 'center', 
-          color: '#FF69B4',
+          color: PRIMARY.main,
           fontWeight: 600 
         }}
       >
@@ -413,7 +418,7 @@ const RegisterForm: React.FC = () => {
           ))}
         </Select>
         {errors.documentType && (
-          <Typography variant="caption" sx={{ mt: 0.5, ml: 2, color: '#FF69B4', fontWeight: 500 }}>
+          <Typography variant="caption" sx={{ mt: 0.5, ml: 2, color: PRIMARY.main, fontWeight: 500 }}>
             {errors.documentType}
           </Typography>
         )}
@@ -466,7 +471,7 @@ const RegisterForm: React.FC = () => {
         sx={{ 
           mb: 3, 
           textAlign: 'center', 
-          color: '#FF69B4',
+          color: PRIMARY.main,
           fontWeight: 600 
         }}
       >
@@ -518,7 +523,7 @@ const RegisterForm: React.FC = () => {
         sx={{ 
           mb: 3, 
           textAlign: 'center', 
-          color: '#FF69B4',
+          color: PRIMARY.main,
           fontWeight: 600 
         }}
       >
@@ -618,6 +623,25 @@ const RegisterForm: React.FC = () => {
         pointerEvents: showInitialLoading ? 'none' : 'auto',
       }}
     >
+      {/* Selector de tema */}
+      <IconButton
+        onClick={toggleMode}
+        sx={{
+          position: 'fixed',
+          top: 16,
+          right: 16,
+          zIndex: 10,
+          color: isDark ? '#FFA726' : '#FF6B6B',
+          backgroundColor: isDark ? 'rgba(255, 167, 38, 0.15)' : 'rgba(255, 107, 107, 0.15)',
+          '&:hover': {
+            backgroundColor: isDark ? 'rgba(255, 167, 38, 0.25)' : 'rgba(255, 107, 107, 0.25)',
+          },
+        }}
+        title={isDark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+      >
+        {isDark ? <SunIcon /> : <MoonIcon />}
+      </IconButton>
+
       {/* Override Autofill y foco rosado */}
       <style>{`
         input:-webkit-autofill,
@@ -631,8 +655,8 @@ const RegisterForm: React.FC = () => {
           transition: background-color 5000s ease-in-out 0s !important;
         }
         .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
-          border-color: #FF69B4 !important;
-          box-shadow: 0 0 0 2px rgba(255, 105, 180, 0.2) !important;
+          border-color: ${PRIMARY.main} !important;
+          box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.2) !important;
         }
       `}</style>
       <Card
@@ -655,7 +679,7 @@ const RegisterForm: React.FC = () => {
                 fontSize: { xs: '1.8rem', sm: '2rem' },
               }}
             >
-              <span style={{ color: '#FF69B4' }}>IT</span>
+              <span style={{ color: PRIMARY.main }}>IT</span>
               <span style={{ color: '#FFA726' }}>DIMENZION</span>
             </Typography>
             <Typography 
@@ -712,7 +736,7 @@ const RegisterForm: React.FC = () => {
                   sx={{
                     textDecoration: 'underline',
                     fontSize: '0.875rem',
-                    color: '#FF69B4',
+                    color: PRIMARY.main,
                     p: 0,
                     minWidth: 'auto',
                     fontWeight: 500,

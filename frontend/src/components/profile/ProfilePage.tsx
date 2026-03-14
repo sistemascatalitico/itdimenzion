@@ -17,10 +17,11 @@ import {
   MenuItem,
 } from '@mui/material';
 import { Save as SaveIcon, Person as PersonIcon } from '@mui/icons-material';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import api from '../../config/api';
 import CompactPhoneInput from '../common/CompactPhoneInput';
 import SecureLocationSelectors from '../common/SecureLocationSelectors';
+import { PRIMARY } from '../../theme/themeTokens';
 
 interface ProfileData {
   firstName: string;
@@ -200,12 +201,13 @@ const ProfilePage: React.FC = () => {
         }}
       >
         <Box
-          sx={{
-            background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E6B 100%)',
+          sx={(theme) => ({
+            background: theme.palette.mode === 'dark' ? theme.palette.background.paper : theme.palette.background.default,
+            color: 'text.primary',
             p: 3,
             textAlign: 'center',
-            color: 'white',
-          }}
+            borderBottom: `4px solid ${PRIMARY.main}`,
+          })}
         >
           <Avatar
             sx={{
@@ -213,16 +215,16 @@ const ProfilePage: React.FC = () => {
               height: 80,
               mx: 'auto',
               mb: 2,
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              bgcolor: 'primary.main',
               fontSize: '2rem',
             }}
           >
             {user?.firstName?.charAt(0) || 'U'}
           </Avatar>
-          <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 600, mb: 1, color: 'inherit' }}>
             Mi Perfil
           </Typography>
-          <Typography variant="body1" sx={{ opacity: 0.9 }}>
+          <Typography variant="body1" sx={{ color: 'text.secondary' }}>
             Gestiona tu información personal
           </Typography>
         </Box>

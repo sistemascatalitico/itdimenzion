@@ -19,9 +19,13 @@ import {
   Email,
   Lock,
   Login as LoginIcon,
+  DarkMode as MoonIcon,
+  LightMode as SunIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
+import { useThemeMode } from '../../context/ThemeContext';
+import { PRIMARY } from '../../theme/themeTokens';
 import LoadingScreen from '../common/LoadingScreen';
 import SuccessMessage from '../common/SuccessMessage';
 
@@ -40,6 +44,7 @@ interface LoginErrors {
 const LoginForm: React.FC = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { isDark, toggleMode } = useThemeMode();
   
   const [formData, setFormData] = useState<LoginData>({
     email: '',
@@ -161,6 +166,25 @@ const LoginForm: React.FC = () => {
         pointerEvents: showInitialLoading ? 'none' : 'auto',
       }}
     >
+      {/* Selector de tema */}
+      <IconButton
+        onClick={toggleMode}
+        sx={{
+          position: 'fixed',
+          top: 16,
+          right: 16,
+          zIndex: 10,
+          color: isDark ? '#FFA726' : '#FF6B6B',
+          backgroundColor: isDark ? 'rgba(255, 167, 38, 0.15)' : 'rgba(255, 107, 107, 0.15)',
+          '&:hover': {
+            backgroundColor: isDark ? 'rgba(255, 167, 38, 0.25)' : 'rgba(255, 107, 107, 0.25)',
+          },
+        }}
+        title={isDark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+      >
+        {isDark ? <SunIcon /> : <MoonIcon />}
+      </IconButton>
+
       <Card
         sx={{
           width: { xs: '90%', sm: '400px' },
@@ -314,7 +338,7 @@ const LoginForm: React.FC = () => {
                   sx={{
                     textDecoration: 'underline',
                     fontSize: '0.875rem',
-                    color: '#FF69B4',
+                    color: PRIMARY.main,
                     p: 0,
                     minWidth: 'auto',
                     fontWeight: 500,
